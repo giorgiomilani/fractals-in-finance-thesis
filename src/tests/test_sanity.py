@@ -1,1 +1,2 @@
-﻿def test_import(): import fractalfinance
+﻿def test_import():
+    import fractalfinance
