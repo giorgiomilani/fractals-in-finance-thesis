@@ -15,8 +15,10 @@ so users can pass either prices or returns.
 """
 
 from __future__ import annotations
+
 import numpy as np
 import pandas as pd
+
 from ._base import BaseEstimator
 
 
@@ -42,14 +44,14 @@ class RS(BaseEstimator):
         # 2. Choose window sizes on a log grid
         max_chunk = max_chunk or N // 4
         ns = np.unique(
-            np.floor(
-                np.logspace(np.log10(min_chunk), np.log10(max_chunk), 9)
-            ).astype(int)
+            np.floor(np.logspace(np.log10(min_chunk), np.log10(max_chunk), 9)).astype(
+                int
+            )
         )
 
         RS_vals, logn = [], []
         for n in ns:
-            k = N // n                # number of full windows
+            k = N // n  # number of full windows
             if k < 2:
                 continue
 
@@ -57,7 +59,7 @@ class RS(BaseEstimator):
             rs_seg = []
             for row in Z:
                 cumdev = np.cumsum(row - row.mean())
-                R = np.ptp(cumdev)    # range
+                R = np.ptp(cumdev)  # range
                 S = row.std(ddof=1)
                 if S > 0:
                     rs_seg.append(R / S)

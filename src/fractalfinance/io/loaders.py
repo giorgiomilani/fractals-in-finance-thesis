@@ -1,6 +1,8 @@
 from pathlib import Path
+
 import pandas as pd
 import requests
+
 
 def load_csv(path: str | Path, tz: str = "UTC") -> pd.Series:
     df = (
@@ -11,9 +13,12 @@ def load_csv(path: str | Path, tz: str = "UTC") -> pd.Series:
     df = df.sort_index()
     return df
 
+
 def load_binance(symbol: str, interval: str, start: str, end: str) -> pd.Series:
     url = "https://api.binance.com/api/v3/klines"
-    params = dict(symbol=symbol, interval=interval, startTime=start, endTime=end, limit=1000)
+    params = dict(
+        symbol=symbol, interval=interval, startTime=start, endTime=end, limit=1000
+    )
     frames = []
     while True:
         js = requests.get(url, params=params, timeout=10).json()

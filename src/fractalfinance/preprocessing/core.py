@@ -1,8 +1,10 @@
 import numpy as np
 import pandas as pd
 
+
 def fill_gaps(series: pd.Series, freq: str) -> pd.Series:
     return series.asfreq(freq).ffill(limit=1)
+
 
 def clean_intraday(series: pd.Series, z_thresh: float = 6.0) -> pd.Series:
     diff = series.diff().dropna()
