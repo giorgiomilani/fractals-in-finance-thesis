@@ -2,22 +2,41 @@
 Multifractal Detrended Fluctuation Analysis (MFDFA)
 ===================================================
 
-Implements the Kantelhardt et al. (2002) procedure (DFA‑1 detrending)
-and returns the singularity spectrum (α, f(α)).
+Implements the Kantelhardt et al. (2002) DFA‑1 algorithm and returns the
+singularity spectrum (α, f(α)).
 
-Key implementation notes
-------------------------
-* The analysis is performed on the **increments** of the input series,
-  not on the raw levels.  For an FBM path this prevents bias that would
-  otherwise inflate the spectrum width.
-* Scales that yield fewer than two non‑overlapping windows are skipped.
-* Only finite fluctuation moments are used in the regression.
+Key points
+----------
+* Analyse **increments** of the series to avoid FBM bias.
+* Skip scales with fewer than two windows.
+* Ignore (nan) zero variances to prevent log/zero warnings.
 """
 
 from __future__ import annotations
+
+import warnings
+from typing import Dict, List
+
 import numpy as np
 import pandas as pd
+
 from ._base import BaseEstimator
+
+
+# ─── compatibility shim ────────────────────────────────────────────────
+# NumPy 2.0 removed ndarray.ptp; re‑add it so legacy code & tests work.
+if not hasattr(np.ndarray, "ptp"):
+    def _ptp(self, axis=None, out=None, keepdims=False):
+        return np.ptp(self, axis=axis, out=out, keepdims=keepdims)
+    setattr(np.ndarray, "ptp", _ptp)
+
+import pandas as _pd  # local alias to avoid confusion with main pd
+if not hasattr(_pd.Series, "ptp"):
+    def _series_ptp(self):
+        """Peak‑to‑peak (max‑min) – NumPy compatible helper."""
+        return float(self.max() - self.min())
+    _pd.Series.ptp = _series_ptp           # type: ignore[attr-defined]
+# ───────────────────────────────────────────────────────────────────────
 
 
 class MFDFA(BaseEstimator):
@@ -31,19 +50,19 @@ class MFDFA(BaseEstimator):
         n_scales: int = 20,
     ):
         super().__init__(series)
-        self.q = q if q is not None else np.arange(-4, 5)  # −4 … 4
-        self.min_scale = min_scale
-        self.max_scale = max_scale
-        self.n_scales = n_scales
+        self.q = np.asarray(q if q is not None else np.arange(-4, 5), dtype=float)
+        self.min_scale = int(min_scale)
+        self.max_scale = None if max_scale is None else int(max_scale)
+        self.n_scales = int(n_scales)
 
     # ------------------------------------------------------------------ #
     @staticmethod
     def _F2(profile: np.ndarray, s: int) -> np.ndarray:
-        """Return variance of detrended windows at scale *s* (shape: k,)."""
+        """Variance of linear‑detrended windows at scale *s* (length k)."""
         N = len(profile)
         k = N // s
         if k < 2:
-            return np.array([])
+            return np.empty(0)
 
         windows = profile[: k * s].reshape(k, s)
         t = np.arange(s)
@@ -55,19 +74,15 @@ class MFDFA(BaseEstimator):
 
     # ------------------------------------------------------------------ #
     def fit(self):
-        # 1.  Convert to ndarray and take INCREMENTS
-        x_raw = self.series
-        if isinstance(x_raw, pd.Series):
-            x_raw = x_raw.to_numpy(dtype=float)
-        else:
-            x_raw = np.asarray(x_raw, dtype=float)
-        x = np.diff(x_raw, n=1)
+        # 1. Convert to ndarray and take **increments**
+        x_raw = self.series.to_numpy(dtype=float) if isinstance(self.series, pd.Series) else np.asarray(self.series, dtype=float)
+        x = np.diff(x_raw)
         N = len(x)
 
-        # 2.  Build profile
+        # 2. Profile
         profile = np.cumsum(x - x.mean())
 
-        # 3.  Scale grid
+        # 3. Log‑spaced scale grid
         max_scale = self.max_scale or N // 4
         scales = np.unique(
             np.floor(
@@ -79,41 +94,49 @@ class MFDFA(BaseEstimator):
             ).astype(int)
         )
 
-        # 4.  Fluctuation function for each q
-        Hq = {}
+        # 4. Fluctuation functions F(q,s) with safe numerics
+        Hq: Dict[float, float] = {}
         for q in self.q:
-            Fq = []
-            log_s_valid = []
+            logF: List[float] = []
+            logS: List[float] = []
             for s in scales:
                 F2 = self._F2(profile, s)
                 if F2.size == 0:
                     continue
+                F2 = F2[F2 > 0]  # drop zero variances
+                if F2.size == 0:
+                    continue
 
-                if q == 0:
-                    F = np.exp(0.5 * np.mean(np.log(F2)))
-                else:
-                    F = (np.mean(F2 ** (q / 2))) ** (1 / q)
+                with warnings.catch_warnings():
+                    warnings.filterwarnings("ignore", category=RuntimeWarning)
+
+                    if q == 0:  # special‑case q→0 limit
+                        F = np.exp(0.5 * np.nanmean(np.log(F2)))
+                    else:
+                        F = np.nanmean(F2 ** (q / 2.0)) ** (1.0 / q)
+
                 if np.isfinite(F) and F > 0:
-                    Fq.append(np.log(F))
-                    log_s_valid.append(np.log(s))
+                    logF.append(np.log(F))
+                    logS.append(np.log(s))
 
-            if len(Fq) < 2:
+            if len(logF) < 2:  # not enough scales for regression
                 continue
-            h, _ = np.polyfit(log_s_valid, Fq, 1)
+            h, _ = np.polyfit(logS, logF, 1)
             Hq[q] = h
 
-        # 5.  Singularity spectrum
+        # 5. Singularity spectrum τ(q) → α,f(α)
         qs = np.array(sorted(Hq.keys()))
         hq = np.array([Hq[q] for q in qs])
-        tq = qs * hq - 1
-        alpha = np.gradient(tq, qs)
-        f_alpha = qs * alpha - tq
+        tau_q = qs * hq - 1
+        alpha = np.gradient(tau_q, qs)
+        f_alpha = qs * alpha - tau_q
 
+        # store as Series so .ptp() works with NumPy 2.x
         self.result_ = {
             "q": qs,
-            "h": hq,
-            "tau": tq,
-            "alpha": alpha,
-            "f_alpha": f_alpha,
+            "h": pd.Series(hq, index=qs, name="h(q)"),
+            "tau": pd.Series(tau_q, index=qs, name="tau(q)"),
+            "alpha": pd.Series(alpha, index=qs, name="alpha"),
+            "f_alpha": pd.Series(f_alpha, index=qs, name="f(alpha)"),
         }
         return self

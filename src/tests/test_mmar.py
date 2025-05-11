@@ -1,0 +1,10 @@
+import numpy as np
+from fractalfinance.models import mmar_simulate, CascadeParams
+from fractalfinance.estimators import MFDFA
+
+def test_mmar_is_multifractal():
+    theta, X, r = mmar_simulate(2048, H=0.5,
+                                cascade=CascadeParams(depth=9, seed=0), seed=0)
+    est = MFDFA(X).fit()
+    width = est.result_["alpha"].ptp()
+    assert width > 0.5          # FBM width≈0 → MMAR width should be wider
