@@ -1,0 +1,4 @@
+defaults:
+  - dataset: spx_daily
+  - model: msm
+  - risk: var99
