@@ -14,7 +14,9 @@ Davies & Harte (1987); Dieker (2004); Mandelbrot & Van Ness (1968)
 """
 
 from __future__ import annotations
+
 from typing import Literal
+
 import numpy as np
 from numpy.typing import ArrayLike
 
@@ -25,12 +27,10 @@ __all__ = ["fbm"]
 def _davies_harte(H: float, n: int) -> np.ndarray:
     """Fractional Gaussian noise (FGN) length *n* via circulant embedding."""
     k = np.arange(n)
-    gamma = 0.5 * (
-        (k + 1) ** (2 * H) - 2 * k ** (2 * H) + np.abs(k - 1) ** (2 * H)
-    )
+    gamma = 0.5 * ((k + 1) ** (2 * H) - 2 * k ** (2 * H) + np.abs(k - 1) ** (2 * H))
     first_row = np.concatenate([gamma, [0.0], gamma[1:][::-1]])
     eigs = np.fft.fft(first_row).real
-    eigs = np.clip(eigs, a_min=0.0, a_max=None)      # numerical safety
+    eigs = np.clip(eigs, a_min=0.0, a_max=None)  # numerical safety
 
     # complex Gaussian vector same length as eigs (2n)
     W = np.random.normal(size=2 * n) + 1j * np.random.normal(size=2 * n)

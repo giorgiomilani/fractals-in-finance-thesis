@@ -15,6 +15,7 @@ References
 """
 
 from __future__ import annotations
+
 from typing import Sequence
 
 import numpy as np
@@ -71,10 +72,10 @@ class WTMM(BaseEstimator):
         if isinstance(x_raw, pd.Series):
             x_raw = x_raw.to_numpy(dtype=float)
         x = np.asarray(x_raw, dtype=float)
-        x = np.diff(x, n=1)                 # analyse increments (fGn)
+        x = np.diff(x, n=1)  # analyse increments (fGn)
 
         # ---------- 2. Continuous wavelet transform -------------------- #
-        coeffs = self._cwt(x)               # shape (S, N)
+        coeffs = self._cwt(x)  # shape (S, N)
 
         # ---------- 3. Partition function Z(q,a) ----------------------- #
         Z = np.empty((self.q.size, self.scales.size))
@@ -89,7 +90,7 @@ class WTMM(BaseEstimator):
                 if qv == 0:
                     Z[iq, j] = np.exp(np.nanmean(np.log(mod_vals)))
                 else:
-                    Z[iq, j] = (np.nanmean(mod_vals ** qv)) ** (1.0 / qv)
+                    Z[iq, j] = (np.nanmean(mod_vals**qv)) ** (1.0 / qv)
 
         # ---------- 4. τ(q) via log–log regression --------------------- #
         tau_q = np.empty_like(self.q)

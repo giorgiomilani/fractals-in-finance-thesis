@@ -6,9 +6,10 @@ Value‑at‑Risk (VaR) and Expected Shortfall (ES)
 """
 
 from __future__ import annotations
+
 import numpy as np
-from scipy.stats import norm, genpareto
 from numpy.typing import ArrayLike
+from scipy.stats import genpareto, norm
 
 
 # ------------------------------------------------------------------ #
@@ -63,11 +64,11 @@ def var_evt(
 
     k, beta = _fit_gpd_mle(exc)
     n, n_exc = x.size, exc.size
-    tail_prob = (1.0 - p) / (n_exc / n)           # conditional exceed. prob
+    tail_prob = (1.0 - p) / (n_exc / n)  # conditional exceed. prob
 
     if k != 0:
         var = u + (beta / k) * (tail_prob ** (-k) - 1.0)
-    else:                                         # k → 0 (exp tail)
+    else:  # k → 0 (exp tail)
         var = u - beta * np.log(tail_prob)
 
     return float(var)
@@ -88,5 +89,5 @@ def es_evt(
 
     var = var_evt(x, p, threshold_q)
     if k >= 1:
-        return np.inf          # ES diverges
+        return np.inf  # ES diverges
     return (var + (beta - k * u)) / (1.0 - k)

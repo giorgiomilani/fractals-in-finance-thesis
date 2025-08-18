@@ -50,3 +50,5 @@ pre-commit = "^4.2.0"
 
 [tool.poetry.scripts]
 finexp = "fractalfinance.cli:main"
+gaf-cnn = "experiments.cnn.train:train"
+gaf-vae = "experiments.vae.train_vae:train"

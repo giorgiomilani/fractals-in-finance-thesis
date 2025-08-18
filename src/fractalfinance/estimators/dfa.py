@@ -9,8 +9,10 @@ Detrended‑Fluctuation Analysis (DFA‑1) estimator
 """
 
 from __future__ import annotations
+
 import numpy as np
 import pandas as pd
+
 from ._base import BaseEstimator
 
 
@@ -82,7 +84,7 @@ class DFA(BaseEstimator):
             raise RuntimeError("DFA: not enough valid scales for regression.")
 
         log_s = np.log(scales[mask])
-        log_F = 0.5 * np.log(F2[mask])          # F = sqrt(F²)
+        log_F = 0.5 * np.log(F2[mask])  # F = sqrt(F²)
 
         H, _ = np.polyfit(log_s, log_F, 1)
         self.result_ = {"H": float(H)}

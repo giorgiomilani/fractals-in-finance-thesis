@@ -30,15 +30,15 @@ def fbm(h, n):
             )
         )
     ).real
-        # --- Davies–Harte drawing --------------------------------------------
+    # --- Davies–Harte drawing --------------------------------------------
     # keep only the first n eigen‑values → length match
     lam = np.sqrt(np.clip(g[:n], a_min=0.0, a_max=None))
 
     w = np.random.normal(size=2 * n)
-    w_complex = w[::2] + 1j * w[1::2]          # length n
+    w_complex = w[::2] + 1j * w[1::2]  # length n
 
     z = np.fft.ifft(lam * w_complex).real[:n]
-    return z.cumsum()                          # FBM path (level series)
+    return z.cumsum()  # FBM path (level series)
 
 
 def test_dfa_bias():

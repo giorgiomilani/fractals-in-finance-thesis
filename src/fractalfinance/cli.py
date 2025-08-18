@@ -50,7 +50,7 @@ def run(
     _ensure_experiments_on_path()
     exp = importlib.import_module("experiments.run")
     if hasattr(exp, "main"):
-        exp.main(overrides or None)            # pass list or None
+        exp.main(overrides or None)  # pass list or None
     else:
         typer.echo("Error: experiments.run.main() not found", err=True)
         raise typer.Exit(code=1)

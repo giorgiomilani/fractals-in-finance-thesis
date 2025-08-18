@@ -1,5 +1,7 @@
 import numpy as np
-from fractalfinance.models import MSMParams, msm_simulate, msm_fit
+
+from fractalfinance.models import MSMParams, msm_fit, msm_simulate
+
 
 def test_msm_fit_recovers_mH():
     np.random.seed(0)

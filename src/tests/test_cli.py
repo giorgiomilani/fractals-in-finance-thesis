@@ -1,4 +1,7 @@
-import subprocess, sys, importlib.util
+import importlib.util
+import subprocess
+import sys
+
 
 def test_cli_runs():
     code = subprocess.call([sys.executable, "-m", "fractalfinance.cli", "--help"])

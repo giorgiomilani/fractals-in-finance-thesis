@@ -1,6 +1,8 @@
 import numpy as np
-from fractalfinance.models import fbm
+
 from fractalfinance.estimators import DFA
+from fractalfinance.models import fbm
+
 
 def test_fbm_hurst_accuracy():
     np.random.seed(123)

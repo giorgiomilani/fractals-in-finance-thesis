@@ -7,8 +7,9 @@ acerbi_szekely  – ES back‑test Z‑score
 """
 
 from __future__ import annotations
+
 import numpy as np
-from scipy.stats import chi2, binom
+from scipy.stats import binom, chi2
 
 
 # ------------------------------------------------------------------ #
@@ -21,7 +22,9 @@ def kupiec(viol: np.ndarray, p: float) -> float:
     T = len(viol)
     N = viol.sum()
     # two‑sided tail probability under H₀ (expected prob = 1‑p)
-    prob = binom.cdf(N, T, 1 - p) if N < (T * (1 - p)) else 1 - binom.cdf(N - 1, T, 1 - p)
+    prob = (
+        binom.cdf(N, T, 1 - p) if N < (T * (1 - p)) else 1 - binom.cdf(N - 1, T, 1 - p)
+    )
     return float(prob)
 
 
@@ -61,7 +64,7 @@ def acerbi_szekely(loss: np.ndarray, var: np.ndarray, es: np.ndarray) -> float:
     es = np.asarray(es, dtype=float)
 
     hits = (loss > var).astype(float)
-    w = hits / (1.0 - 0.99)          # weight for 99 % tail
+    w = hits / (1.0 - 0.99)  # weight for 99 % tail
     z = (loss - es) * w
     zbar = z.mean()
     s = z.std(ddof=1)

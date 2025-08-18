@@ -92,7 +92,7 @@ def _transition_matrix(params: MSMParams) -> np.ndarray:
         P = ⨂_{k=1}^K P_k
     """
     states = _all_states(params.K)
-    P = np.ones((2 ** params.K, 2 ** params.K))
+    P = np.ones((2**params.K, 2**params.K))
     for k in range(params.K):
         gk = _gamma_k(params.gamma_1, params.b, k + 1)
         same = states[:, k, None] == states[None, :, k]

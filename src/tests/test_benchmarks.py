@@ -1,5 +1,8 @@
-import numpy as np, pandas as pd
+import numpy as np
+import pandas as pd
+
 from fractalfinance.models import GARCH, HAR
+
 
 def test_garch_forecast_positive():
     np.random.seed(0)
@@ -7,6 +10,7 @@ def test_garch_forecast_positive():
     mdl = GARCH().fit(r)
     fc = mdl.forecast(h=5)
     assert (fc > 0).all() and fc.size == 5
+
 
 def test_har_forecast_reasonable():
     # create synthetic RV with volatility clustering

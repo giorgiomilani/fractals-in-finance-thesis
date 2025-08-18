@@ -19,8 +19,8 @@ from typing import Sequence
 
 import numpy as np
 import pandas as pd
-from arch import arch_model
 import statsmodels.api as sm
+from arch import arch_model
 
 __all__ = ["GARCH", "HAR"]
 
@@ -46,7 +46,7 @@ class GARCH:
         if self._res is None:
             raise RuntimeError("Call .fit() first.")
         f = self._res.forecast(horizon=h, reindex=False)
-        return f.variance.values.flatten()          # shape (h,)
+        return f.variance.values.flatten()  # shape (h,)
 
 
 # --------------------------------------------------------------------- #
@@ -78,7 +78,7 @@ class HAR:
         """OLS fit; rv must be positive daily realised variance."""
         rv = rv.astype(float)
         X = self._design_matrix(rv)
-        y = rv.loc[X.index]                       # target = RV_{t}
+        y = rv.loc[X.index]  # target = RV_{t}
         model = sm.OLS(y, X).fit()
         self.params_ = model.params
         self._last_row_ = X.iloc[-1]
@@ -99,8 +99,8 @@ class HAR:
                 regressors.append(reg)
 
             pred = float(np.dot(self.params_.values, regressors))
-            pred = max(pred, 1e-12)              # ensure strictly positive
+            pred = max(pred, 1e-12)  # ensure strictly positive
             preds.append(pred)
-            history.append(pred)                 # update rolling window
+            history.append(pred)  # update rolling window
 
         return np.array(preds)
