@@ -7,7 +7,10 @@ circular imports.
 from __future__ import annotations
 
 # ── volatility benchmarks ──────────────────────────────────────────────
-from .benchmarks import GARCH, HAR
+try:  # optional volatility benchmarks (statsmodels dependency)
+    from .benchmarks import GARCH, HAR
+except Exception:  # pragma: no cover - dependency missing
+    GARCH = HAR = None
 
 # ── fractional Brownian motion ─────────────────────────────────────────
 from .fbm import fbm

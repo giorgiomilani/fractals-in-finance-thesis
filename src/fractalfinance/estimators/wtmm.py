@@ -6,8 +6,12 @@ Implements 1‑D WTMM with a Mexican‑Hat (Ricker) continuous wavelet.
 Steps
 1. Continuous wavelet transform at dyadic scales a_j = a0·2^j.
 2. Track modulus maxima across scales.
-3. Build partition function Z(q,a).
+3. Build partition function Z(q,a) = Σ|W(a,b)|^q over modulus maxima.
 4. Regress log Z vs log a → τ(q) → singularity spectrum (α,f(α)).
+
+The algorithm operates on series of increments.  Supply ``from_levels=True``
+when the input consists of level observations so the series is differenced
+before analysis.
 
 References
 * Muzy, Bacry, Arneodo (1993)  *Phys. Rev. Lett.*
@@ -32,6 +36,7 @@ class WTMM(BaseEstimator):
         q: Sequence[float] = (-4, -2, -1, -0.5, 0.5, 1, 2, 3, 4),
         a0: float = 2.0,
         n_scales: int = 16,
+        from_levels: bool = False,
     ):
         # linear interpolation if user passes a Series with NaNs
         if isinstance(series, pd.Series):
@@ -41,6 +46,7 @@ class WTMM(BaseEstimator):
         self.q = np.asarray(q, dtype=float)
         self.a0 = float(a0)
         self.n_scales = int(n_scales)
+        self.from_levels = from_levels
 
         # dyadic scales a_j = a0 * 2^j
         self.scales = self.a0 * 2.0 ** np.arange(self.n_scales)
@@ -68,11 +74,8 @@ class WTMM(BaseEstimator):
     # ------------------------------------------------------------------ #
     def fit(self) -> "WTMM":
         # ---------- 1. Input handling & increments --------------------- #
-        x_raw = self.series
-        if isinstance(x_raw, pd.Series):
-            x_raw = x_raw.to_numpy(dtype=float)
-        x = np.asarray(x_raw, dtype=float)
-        x = np.diff(x, n=1)  # analyse increments (fGn)
+        x = np.asarray(self.series, dtype=float)
+        x = np.diff(x, n=1) if self.from_levels else x  # analyse increments
 
         # ---------- 2. Continuous wavelet transform -------------------- #
         coeffs = self._cwt(x)  # shape (S, N)
@@ -86,11 +89,16 @@ class WTMM(BaseEstimator):
                 continue
 
             mod_vals = np.abs(coeffs[j, maxima_idx])
+            mod_vals = mod_vals[mod_vals > 0]
+            if mod_vals.size == 0:
+                Z[:, j] = np.nan
+                continue
+
             for iq, qv in enumerate(self.q):
                 if qv == 0:
-                    Z[iq, j] = np.exp(np.nanmean(np.log(mod_vals)))
+                    Z[iq, j] = float(mod_vals.size)
                 else:
-                    Z[iq, j] = (np.nanmean(mod_vals**qv)) ** (1.0 / qv)
+                    Z[iq, j] = np.nansum(mod_vals**qv)
 
         # ---------- 4. τ(q) via log–log regression --------------------- #
         tau_q = np.empty_like(self.q)

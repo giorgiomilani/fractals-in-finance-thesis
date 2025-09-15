@@ -10,14 +10,14 @@ Implements classic Hurst (1951) analysis:
     3.  Average R/S over windows, repeat for several n
     4.  Slope of  log〈R/S〉  vs  log n  gives H
 
-The estimator automatically converts a *level* path to *increments*,
-so users can pass either prices or returns.
+By default the estimator assumes the input already represents
+increments (returns).  When passing *level* observations, set
+``from_levels=True`` so the series is first differenced.
 """
 
 from __future__ import annotations
 
 import numpy as np
-import pandas as pd
 
 from ._base import BaseEstimator
 
@@ -25,17 +25,17 @@ from ._base import BaseEstimator
 class RS(BaseEstimator):
     """Rescaled‑range estimator of the Hurst exponent."""
 
-    def fit(self, min_chunk: int = 16, max_chunk: int | None = None):
+    def fit(
+        self,
+        min_chunk: int = 16,
+        max_chunk: int | None = None,
+        *,
+        from_levels: bool = False,
+    ):
         # ------------------------------------------------------------------ #
-        # 1. Work with INCREMENTS; if a level path is supplied, diff it
-        x_raw = self.series
-        if isinstance(x_raw, pd.Series):
-            x_raw = x_raw.to_numpy(dtype=float)
-        else:
-            x_raw = np.asarray(x_raw, dtype=float)
-
-        # ensure we measure increments
-        x = np.diff(x_raw, n=1)
+        # 1. Work with increments; optionally difference a level path
+        x = np.asarray(self.series, dtype=float)
+        x = np.diff(x, n=1) if from_levels else x
         N = len(x)
         if N < 2:
             raise ValueError("Need at least two observations")

@@ -1,9 +1,14 @@
-"""
-Detrended‑Fluctuation Analysis (DFA‑1) estimator
-===============================================
+"""Detrended‑Fluctuation Analysis (DFA‑1).
 
-* Works on the **increments** of the input series so that
-  FBM levels with H produce slope ≈ H (not H+1).
+This implementation follows the standard formulation used in the
+thesis, where the *profile* is built by cumulatively summing the
+mean‑centered input series :math:`x_k`.  When the supplied data are
+*level* observations of a process such as fractional Brownian motion,
+setting ``from_levels=True`` first differences the series so that the
+estimated slope maps to the Hurst exponent :math:`H` rather than
+``H+1``.  By default the estimator assumes the input already consists of
+increments (returns).
+
 * Skips scales where fewer than two windows fit.
 * Requires at least two finite fluctuation points for regression.
 """
@@ -24,11 +29,13 @@ class DFA(BaseEstimator):
         min_scale: int = 8,
         max_scale: int | None = None,
         n_scales: int = 20,
+        from_levels: bool = False,
     ):
         super().__init__(series)
         self.min_scale = min_scale
         self.max_scale = max_scale
         self.n_scales = n_scales
+        self.from_levels = from_levels
 
     # ------------------------------------------------------------------ #
     @staticmethod
@@ -56,13 +63,14 @@ class DFA(BaseEstimator):
         else:
             x_raw = np.asarray(x_raw, dtype=float)
 
-        # 2. Convert to increments (fGn) to target slope = H
-        x = np.diff(x_raw, n=1)
+        # 2. Optionally convert level series to increments (fGn)
+        x = np.diff(x_raw, n=1) if self.from_levels else x_raw
+        x = np.asarray(x, dtype=float)
         N = len(x)
         if N < 2:
             raise ValueError("Series too short for DFA.")
 
-        # 3. Build profile of increments
+        # 3. Build profile of mean‑centered data
         profile = np.cumsum(x - x.mean())
 
         # 4. Log‑spaced scales

@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from fractalfinance.estimators import DFA
+from fractalfinance.estimators.dfa import DFA
 
 
 def fbm(h, n):
@@ -46,5 +46,5 @@ def test_dfa_bias():
     n = 4096
     H_true = 0.75
     path = fbm(H_true, n)
-    est = DFA(pd.Series(path)).fit()
+    est = DFA(pd.Series(path), from_levels=True).fit()
     assert abs(est.result_["H"] - H_true) < 0.04

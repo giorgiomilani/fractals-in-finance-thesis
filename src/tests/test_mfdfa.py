@@ -20,7 +20,7 @@ def make_fbm(H, N):
 def test_mfdfa_width_on_fbm():
     np.random.seed(0)
     fbm_path = make_fbm(0.6, 2048)
-    est = MFDFA(pd.Series(fbm_path)).fit()
+    est = MFDFA(pd.Series(fbm_path), from_levels=True).fit()
     width = est.result_["alpha"].max() - est.result_["alpha"].min()
     # pure FBM is monofractal: width close to zero
     assert width < 0.2
