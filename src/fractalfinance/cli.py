@@ -59,6 +59,29 @@ def run(
 
 
 # ──────────────────────────────────────────────────────────────────────────────
+# data commands
+# ──────────────────────────────────────────────────────────────────────────────
+data_app = typer.Typer(help="Download market data.")
+
+
+@data_app.command("yahoo")
+def yahoo_cmd(
+    symbol: str,
+    start: str,
+    end: str,
+    path: Path = Path("data.csv"),
+) -> None:
+    """Download prices from Yahoo Finance and save to PATH."""
+    from .io import load_yahoo
+
+    series = load_yahoo(symbol, start=start, end=end)
+    series.to_frame(name="close").to_csv(path, index_label="timestamp")
+
+
+app.add_typer(data_app, name="data")
+
+
+# ──────────────────────────────────────────────────────────────────────────────
 # plotting commands
 # ──────────────────────────────────────────────────────────────────────────────
 plot_app = typer.Typer(help="Generate plots for fractal processes.")
