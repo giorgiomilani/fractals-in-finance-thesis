@@ -56,6 +56,20 @@ async def _gather_klines(
         return await asyncio.gather(*tasks)
 
 
+def _to_ms(ts: str | int | float) -> int:
+    """Convert various timestamp representations to milliseconds.
+
+    Integers (and digit strings) are interpreted directly as milliseconds since
+    the Unix epoch. Other inputs are parsed with ``pandas.to_datetime`` and
+    converted to UTC before being returned in millisecond precision.
+    """
+    if isinstance(ts, (int, float)):
+        return int(ts)
+    if isinstance(ts, str) and ts.isdigit():
+        return int(ts)
+    return int(pd.to_datetime(ts, utc=True).timestamp() * 1000)
+
+
 def load_binance(
     symbol: str,
     interval: str,
@@ -95,8 +109,8 @@ def load_binance(
         If no data is returned for the requested range.
     """
     url = "https://api.binance.com/api/v3/klines"
-    start_ms = int(pd.Timestamp(start).timestamp() * 1000)
-    end_ms = int(pd.Timestamp(end).timestamp() * 1000)
+    start_ms = _to_ms(start)
+    end_ms = _to_ms(end)
     interval_ms = int(pd.to_timedelta(interval).total_seconds() * 1000)
     limit = 1000
     step = interval_ms * limit
@@ -128,12 +142,6 @@ def load_binance(
     if not frames:
         raise ValueError("No data returned from Binance")
 
-    df = (
-        pd.concat(frames)
-        .set_index("ts")["close"]
-        .astype(float)
-        .tz_localize("UTC", unit="ms")
-        .rename(symbol)
-        .sort_index()
-    )
-    return df
+    df = pd.concat(frames).set_index("ts")["close"].astype(float)
+    df.index = pd.to_datetime(df.index, unit="ms", utc=True)
+    return df.rename(symbol).sort_index()
