@@ -59,6 +59,7 @@ async def _gather_klines(
 def _to_ms(ts: str | int | float) -> int:
     """Convert various timestamp representations to milliseconds.
 
+
     Integers (and digit strings) are interpreted directly as milliseconds since
     the Unix epoch. Other inputs are parsed with ``pandas.to_datetime`` and
     converted to UTC before being returned in millisecond precision.

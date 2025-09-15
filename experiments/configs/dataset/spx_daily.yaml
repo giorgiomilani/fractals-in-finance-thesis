@@ -1,3 +1,8 @@
 name: spx_daily
+symbol: "^GSPC"
+# three-year window for quick experiments
+start: "2022-01-01"
+end: "2024-12-31"
+
 path: spx_daily.csv
 freq: 1d
