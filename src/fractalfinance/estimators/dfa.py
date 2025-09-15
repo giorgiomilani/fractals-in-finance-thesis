@@ -1,9 +1,14 @@
-"""
-Detrended‑Fluctuation Analysis (DFA‑1) estimator
-===============================================
+"""Detrended‑Fluctuation Analysis (DFA‑1).
 
-* Works on the **increments** of the input series so that
-  FBM levels with H produce slope ≈ H (not H+1).
+This implementation follows the standard formulation used in the
+thesis, where the *profile* is built by cumulatively summing the
+mean‑centered input series :math:`x_k`.  When the supplied data are
+*level* observations of a process such as fractional Brownian motion,
+setting ``from_levels=True`` first differences the series so that the
+estimated slope maps to the Hurst exponent :math:`H` rather than
+``H+1``.  By default the estimator assumes the input already consists of
+increments (returns).
+
 * Skips scales where fewer than two windows fit.
 * Requires at least two finite fluctuation points for regression.
 """
@@ -24,34 +29,15 @@ class DFA(BaseEstimator):
         min_scale: int = 8,
         max_scale: int | None = None,
         n_scales: int = 20,
-        auto_range: bool = False,
-        r2_thresh: float = 0.98,
-        min_points: int = 5,
-        n_boot: int = 0,
+        from_levels: bool = False,
+
     ):
         super().__init__(series)
         self.min_scale = min_scale
         self.max_scale = max_scale
         self.n_scales = n_scales
-        self.auto_range = auto_range
-        self.r2_thresh = r2_thresh
-        self.min_points = min_points
-        self.n_boot = n_boot
+        self.from_levels = from_levels
 
-    # ------------------------------------------------------------------ #
-    @staticmethod
-    def _best_range(log_s: np.ndarray, log_F: np.ndarray, min_points: int, r2: float):
-        """Return slice of scales with highest R² above threshold."""
-        n = len(log_s)
-        best = slice(0, n)
-        best_r2 = -np.inf
-        for i in range(n - min_points + 1):
-            for j in range(i + min_points, n + 1):
-                r = np.corrcoef(log_s[i:j], log_F[i:j])[0, 1] ** 2
-                if r > best_r2 and r >= r2:
-                    best_r2 = r
-                    best = slice(i, j)
-        return best
 
     # ------------------------------------------------------------------ #
     @staticmethod
@@ -79,13 +65,14 @@ class DFA(BaseEstimator):
         else:
             x_raw = np.asarray(x_raw, dtype=float)
 
-        # 2. Convert to increments (fGn) to target slope = H
-        x = np.diff(x_raw, n=1)
+        # 2. Optionally convert level series to increments (fGn)
+        x = np.diff(x_raw, n=1) if self.from_levels else x_raw
+        x = np.asarray(x, dtype=float)
         N = len(x)
         if N < 2:
             raise ValueError("Series too short for DFA.")
 
-        # 3. Build profile of increments
+        # 3. Build profile of mean‑centered data
         profile = np.cumsum(x - x.mean())
 
         # 4. Log‑spaced scales

@@ -22,6 +22,6 @@ def fbm(H: float, N: int) -> np.ndarray:
 def test_wtmm_width_on_fbm():
     np.random.seed(1)
     path = fbm(0.55, 2048)
-    est = WTMM(pd.Series(path)).fit()
+    est = WTMM(pd.Series(path), from_levels=True).fit()
     width = est.result_["alpha"].max() - est.result_["alpha"].min()
     assert width < 0.25  # monofractal ≈ narrow spectrum

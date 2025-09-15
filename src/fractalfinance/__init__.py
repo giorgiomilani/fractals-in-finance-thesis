@@ -6,7 +6,10 @@ except Exception:
     __version__ = "0.0.0"
 
 from .estimators import DFA, MFDFA, RS, WTMM  # noqa
-from .io import load_binance, load_csv, save_parquet  # noqa
+try:  # optional data-loading helpers (require third-party deps)
+    from .io import load_binance, load_csv, save_parquet  # noqa
+except Exception:  # pragma: no cover - dependency missing
+    load_binance = load_csv = save_parquet = None
 from .preprocessing import clean_intraday, fill_gaps  # noqa
 
 __all__ = [

@@ -7,9 +7,10 @@ and returns the singularity spectrum (α, f(α)).
 
 Key implementation notes
 ------------------------
-* The analysis is performed on the **increments** of the input series,
-  not on the raw levels.  For an FBM path this prevents bias that would
-  otherwise inflate the spectrum width.
+* The analysis operates on series of **increments** (returns).  When
+  passing level data, specify ``from_levels=True`` to difference the
+  series prior to profiling; this matches the thesis formulation where
+  the profile integrates mean‑centered increments.
 * Scales that yield fewer than two non‑overlapping windows are skipped.
 * Only finite fluctuation moments are used in the regression.
 """
@@ -49,7 +50,8 @@ class MFDFA(BaseEstimator):
     Parameters
     ----------
     series : array‑like
-        Level series (the estimator will internally difference it).
+        Input increments.  Set ``from_levels=True`` when supplying
+        level observations so the estimator differences them.
     q : ndarray, optional
         Range of moments (default −4…+4).
     min_scale, max_scale, n_scales : int
@@ -64,59 +66,53 @@ class MFDFA(BaseEstimator):
         min_scale: int = 8,
         max_scale: int | None = None,
         n_scales: int = 20,
-        auto_range: bool = False,
-        r2_thresh: float = 0.98,
-        min_points: int = 5,
+        from_levels: bool = False,
+
     ):
         super().__init__(series)
         self.q = q if q is not None else np.arange(-4, 5)  # −4 … 4
         self.min_scale = min_scale
         self.max_scale = max_scale
         self.n_scales = n_scales
-        self.auto_range = auto_range
-        self.r2_thresh = r2_thresh
-        self.min_points = min_points
+        self.from_levels = from_levels
 
-    # ------------------------------------------------------------------ #
-    @staticmethod
-    def _best_range(log_s: list[float], Fq: list[float], min_points: int, r2: float):
-        n = len(log_s)
-        best = slice(0, n)
-        best_r2 = -np.inf
-        for i in range(n - min_points + 1):
-            for j in range(i + min_points, n + 1):
-                r_val = np.corrcoef(log_s[i:j], Fq[i:j])[0, 1] ** 2
-                if r_val > best_r2 and r_val >= r2:
-                    best_r2 = r_val
-                    best = slice(i, j)
-        return best
 
     # ------------------------------------------------------------------ #
     @staticmethod
     def _F2(profile: np.ndarray, s: int) -> np.ndarray:
-        """Return variance of detrended windows at scale *s* (shape: k,)."""
+        """Variance of detrended windows at scale *s* (``2k`` values).
+
+        The thesis formulates MFDFA with ``2N_s`` segments obtained by
+        scanning the profile from both the start and the end.  This helper
+        mirrors that approach by detrending forward and reversed windows and
+        returning the variances of all ``2k`` segments.
+        """
+
         N = len(profile)
         k = N // s
         if k < 2:
             return np.array([])
 
-        windows = profile[: k * s].reshape(k, s)
         t = np.arange(s)
-        F2 = np.empty(k)
-        for i, w in enumerate(windows):
+        F2 = []
+
+        # forward windows
+        for w in profile[: k * s].reshape(k, s):
             a, b = np.polyfit(t, w, 1)
-            F2[i] = np.mean((w - (a * t + b)) ** 2)
-        return F2
+            F2.append(np.mean((w - (a * t + b)) ** 2))
+
+        # reversed windows (account for residual segment)
+        for w in profile[::-1][: k * s].reshape(k, s):
+            a, b = np.polyfit(t, w, 1)
+            F2.append(np.mean((w - (a * t + b)) ** 2))
+
+        return np.asarray(F2)
 
     # ------------------------------------------------------------------ #
     def fit(self):
-        # 1 ▸ increments
-        x_raw = (
-            self.series.to_numpy(dtype=float)
-            if isinstance(self.series, pd.Series)
-            else np.asarray(self.series, dtype=float)
-        )
-        x = np.diff(x_raw)
+        # 1 ▸ increments (optionally difference level data)
+        x = np.asarray(self.series, dtype=float)
+        x = np.diff(x) if self.from_levels else x
         N = len(x)
 
         # 2 ▸ profile
