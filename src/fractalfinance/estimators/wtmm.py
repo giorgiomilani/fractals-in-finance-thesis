@@ -66,7 +66,7 @@ class WTMM(BaseEstimator):
         return np.where(peaks)[0] + 1  # +1 because of slice offset
 
     # ------------------------------------------------------------------ #
-    def fit(self) -> "WTMM":
+    def fit(self, n_surrogates: int = 0) -> "WTMM":
         # ---------- 1. Input handling & increments --------------------- #
         x_raw = self.series
         if isinstance(x_raw, pd.Series):
@@ -106,11 +106,46 @@ class WTMM(BaseEstimator):
         alpha = np.gradient(tau_q, self.q)
         f_alpha = self.q * alpha - tau_q
 
-        self.result_ = {
+        result = {
             "tau(q)": tau_q,
             "alpha": alpha,
             "f(alpha)": f_alpha,
             "q": self.q,
             "scales": self.scales,
         }
+
+        if n_surrogates > 0:
+            sur = []
+            for _ in range(n_surrogates):
+                perm = np.random.permutation(x)
+                coeffs_s = self._cwt(perm)
+                Zs = np.empty_like(Z)
+                for j, a in enumerate(self.scales):
+                    maxima_idx = self._modulus_maxima(coeffs_s[j])
+                    if maxima_idx.size == 0:
+                        Zs[:, j] = np.nan
+                        continue
+                    mod_vals = np.abs(coeffs_s[j, maxima_idx])
+                    for iq, qv in enumerate(self.q):
+                        if qv == 0:
+                            Zs[iq, j] = np.exp(np.nanmean(np.log(mod_vals)))
+                        else:
+                            Zs[iq, j] = (
+                                np.nanmean(mod_vals**qv)
+                            ) ** (1.0 / qv)
+                tau_s = np.empty_like(self.q)
+                for i in range(self.q.size):
+                    mask = np.isfinite(Zs[i])
+                    if mask.sum() < 2:
+                        tau_s[i] = np.nan
+                        continue
+                    slope, _ = np.polyfit(
+                        np.log(self.scales[mask]), np.log(Zs[i, mask]), 1
+                    )
+                    tau_s[i] = slope
+                sur.append(tau_s)
+            sur = np.array(sur)
+            result["tau_std"] = np.nanstd(sur, axis=0, ddof=1)
+
+        self.result_ = result
         return self

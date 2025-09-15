@@ -24,11 +24,34 @@ class DFA(BaseEstimator):
         min_scale: int = 8,
         max_scale: int | None = None,
         n_scales: int = 20,
+        auto_range: bool = False,
+        r2_thresh: float = 0.98,
+        min_points: int = 5,
+        n_boot: int = 0,
     ):
         super().__init__(series)
         self.min_scale = min_scale
         self.max_scale = max_scale
         self.n_scales = n_scales
+        self.auto_range = auto_range
+        self.r2_thresh = r2_thresh
+        self.min_points = min_points
+        self.n_boot = n_boot
+
+    # ------------------------------------------------------------------ #
+    @staticmethod
+    def _best_range(log_s: np.ndarray, log_F: np.ndarray, min_points: int, r2: float):
+        """Return slice of scales with highest R² above threshold."""
+        n = len(log_s)
+        best = slice(0, n)
+        best_r2 = -np.inf
+        for i in range(n - min_points + 1):
+            for j in range(i + min_points, n + 1):
+                r = np.corrcoef(log_s[i:j], log_F[i:j])[0, 1] ** 2
+                if r > best_r2 and r >= r2:
+                    best_r2 = r
+                    best = slice(i, j)
+        return best
 
     # ------------------------------------------------------------------ #
     @staticmethod
@@ -86,6 +109,30 @@ class DFA(BaseEstimator):
         log_s = np.log(scales[mask])
         log_F = 0.5 * np.log(F2[mask])  # F = sqrt(F²)
 
-        H, _ = np.polyfit(log_s, log_F, 1)
-        self.result_ = {"H": float(H)}
+        sl = (
+            self._best_range(log_s, log_F, self.min_points, self.r2_thresh)
+            if self.auto_range
+            else slice(0, len(log_s))
+        )
+        H, _ = np.polyfit(log_s[sl], log_F[sl], 1)
+        result = {"H": float(H), "scales": scales[mask][sl]}
+
+        if self.n_boot > 0:
+            boot = []
+            for _ in range(self.n_boot):
+                resample = np.random.choice(x, size=N, replace=True)
+                prof_b = np.cumsum(resample - resample.mean())
+                F2_b = np.array([self._detrended_var(prof_b, s) for s in scales])
+                mask_b = np.isfinite(F2_b) & (F2_b > 0)
+                log_s_b = np.log(scales[mask_b])
+                log_F_b = 0.5 * np.log(F2_b[mask_b])
+                sl_b = (
+                    self._best_range(log_s_b, log_F_b, self.min_points, self.r2_thresh)
+                    if self.auto_range
+                    else slice(0, len(log_s_b))
+                )
+                H_b, _ = np.polyfit(log_s_b[sl_b], log_F_b[sl_b], 1)
+                boot.append(H_b)
+            result["H_std"] = float(np.std(boot, ddof=1))
+        self.result_ = result
         return self

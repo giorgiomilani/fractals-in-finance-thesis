@@ -24,8 +24,7 @@ def simulate(
     depth: int = 8,
     seed: int | None = None,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-
-  """Simulate a simple MMAR path.
+    """Simulate a simple MMAR path.
 
     The Hurst exponent *H* controls the roughness of the underlying
     fractional Brownian motion increments which are then modulated by a

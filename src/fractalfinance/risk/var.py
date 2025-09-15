@@ -35,23 +35,27 @@ def _fit_gpd_mle(exc: np.ndarray) -> tuple[float, float]:
     return float(k), float(beta)
 
 
+def _anderson_darling_gpd(exc: np.ndarray, k: float, beta: float) -> float:
+    """Anderson–Darling statistic for GPD fit."""
+    exc = np.sort(exc)
+    n = exc.size
+    cdf = genpareto.cdf(exc, c=k, scale=beta)
+    i = np.arange(1, n + 1)
+    S = np.sum((2 * i - 1) * (np.log(cdf) + np.log(1 - cdf[::-1])), dtype=float)
+    return -n - S / n
+
+
 def var_evt(
     x: ArrayLike,
     p: float = 0.99,
     threshold_q: float = 0.95,
-) -> float:
+    diagnostics: bool = False,
+):
     """
     POT‑EVT VaR for *positive* losses (heavy right tail).
 
-    Parameters
-    ----------
-    x : 1‑D array‑like
-    p : confidence level (e.g. 0.99)
-    threshold_q : quantile for threshold u (default 0.95)
-
-    Returns
-    -------
-    float  VaRₚ
+    When ``diagnostics`` is ``True`` the function also returns the
+    Anderson–Darling statistic and QQ‑plot theoretical quantiles.
     """
     x = np.asarray(x, dtype=float).ravel()
     u = np.quantile(x, threshold_q)
@@ -63,6 +67,7 @@ def var_evt(
         exc = x[x > u] - u
 
     k, beta = _fit_gpd_mle(exc)
+    ad = _anderson_darling_gpd(exc, k, beta)
     n, n_exc = x.size, exc.size
     tail_prob = (1.0 - p) / (n_exc / n)  # conditional exceed. prob
 
@@ -70,6 +75,11 @@ def var_evt(
         var = u + (beta / k) * (tail_prob ** (-k) - 1.0)
     else:  # k → 0 (exp tail)
         var = u - beta * np.log(tail_prob)
+
+    if diagnostics:
+        i = (np.arange(1, exc.size + 1) - 0.5) / exc.size
+        theo = genpareto.ppf(i, c=k, scale=beta)
+        return float(var), float(ad), (np.sort(exc), theo)
 
     return float(var)
 
