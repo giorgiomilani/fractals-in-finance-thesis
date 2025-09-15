@@ -20,6 +20,10 @@ can be prototyped quickly.
 Each component is documented with small tests and examples so it can be reused
 in isolation or composed into larger experiments.
 
+A research playground collecting fractal models, preprocessing utilities and
+risk metrics for financial time series.
+
+
 ## Installation
 
 The project targets Python 3.11+.  Install the package in editable mode
@@ -52,6 +56,7 @@ python -m fractalfinance.cli run model=msm dataset=btc_minute
 Hydra configuration files for datasets, models and risk metrics live in
 `experiments/configs`.
 
+
 ## Example plots
 
 The `examples/plotting.py` module generates visualisations for the main
@@ -66,3 +71,4 @@ python -m examples.plotting mmar     # multiplicative cascade and MMAR path
 
 Each command prints the path of the generated figure, making it easy to script
 or embed into reports.
+
