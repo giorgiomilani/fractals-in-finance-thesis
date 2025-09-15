@@ -1,13 +1,4 @@
-'defaults:
-  - model: garch
-  - dataset: spx_daily
-  - risk: var99' | Out-File experiments\configs\config.yaml -Encoding UTF8
-
-'{type: msm, K: 5, m_H: 1.4, gamma_1: 0.05}' | Out-File experiments\configs\model\msm.yaml -Encoding UTF8
-'{type: garch, p: 1, q: 1}'                   | Out-File experiments\configs\model\garch.yaml -Encoding UTF8
-
-'{source: btc_minute.csv, freq: 1min}'        | Out-File experiments\configs\dataset\btc_minute.yaml -Encoding UTF8
-'{source: spx_daily.csv,  freq: 1d}'          | Out-File experiments\configs\dataset\spx_daily.yaml -Encoding UTF8
-
-'{metric: var, alpha: 0.99}'                  | Out-File experiments\configs\risk\var99.yaml -Encoding UTF8
-'{metric: var, alpha: 0.975}'                 | Out-File experiments\configs\risk\var975.yaml -Encoding UTF8
+name: garch
+p: 1
+q: 1
+h: 1

@@ -15,12 +15,15 @@ Key implementation notes
 """
 
 from __future__ import annotations
+import warnings
+from typing import Dict
+
 import numpy as np
 import pandas as pd
+
 from ._base import BaseEstimator
 
-<<<<<<< Updated upstream
-=======
+
 # ── compatibility shims ─────────────────────────────────────────────────
 # NumPy 2.0 removed ndarray.ptp – add a trivial wrapper so legacy tests
 # that expect `array.ptp()` continue to work.
@@ -40,8 +43,6 @@ if not hasattr(pd.Series, "ptp"):
 
     pd.Series.ptp = _series_ptp  # type: ignore[attr-defined]
 # ────────────────────────────────────────────────────────────────────────
-
->>>>>>> Stashed changes
 
 class MFDFA(BaseEstimator):
     """
@@ -89,21 +90,6 @@ class MFDFA(BaseEstimator):
 
     # ------------------------------------------------------------------ #
     def fit(self):
-<<<<<<< Updated upstream
-        # 1.  Convert to ndarray and take INCREMENTS
-        x_raw = self.series
-        if isinstance(x_raw, pd.Series):
-            x_raw = x_raw.to_numpy(dtype=float)
-        else:
-            x_raw = np.asarray(x_raw, dtype=float)
-        x = np.diff(x_raw, n=1)
-        N = len(x)
-
-        # 2.  Build profile
-        profile = np.cumsum(x - x.mean())
-
-        # 3.  Scale grid
-=======
         # 1 ▸ increments
         x_raw = (
             self.series.to_numpy(dtype=float)
@@ -117,7 +103,6 @@ class MFDFA(BaseEstimator):
         profile = np.cumsum(x - x.mean())
 
         # 3 ▸ log‑spaced scales
->>>>>>> Stashed changes
         max_scale = self.max_scale or N // 4
         scales = np.unique(
             np.floor(
@@ -129,13 +114,8 @@ class MFDFA(BaseEstimator):
             ).astype(int)
         )
 
-<<<<<<< Updated upstream
-        # 4.  Fluctuation function for each q
-        Hq = {}
-=======
         # 4 ▸ fluctuation functions
         Hq: Dict[float, float] = {}
->>>>>>> Stashed changes
         for q in self.q:
             Fq = []
             log_s_valid = []
@@ -143,8 +123,6 @@ class MFDFA(BaseEstimator):
                 F2 = self._F2(profile, s)
                 if F2.size == 0:
                     continue
-<<<<<<< Updated upstream
-=======
                 F2 = F2[F2 > 0]  # drop zero variances
 
                 with warnings.catch_warnings():
@@ -154,40 +132,19 @@ class MFDFA(BaseEstimator):
                         F = np.exp(0.5 * np.nanmean(np.log(F2)))
                     else:
                         F = np.nanmean(F2 ** (q / 2.0)) ** (1.0 / q)
->>>>>>> Stashed changes
-
-                if q == 0:
-                    F = np.exp(0.5 * np.mean(np.log(F2)))
-                else:
-                    F = (np.mean(F2 ** (q / 2))) ** (1 / q)
                 if np.isfinite(F) and F > 0:
                     Fq.append(np.log(F))
                     log_s_valid.append(np.log(s))
-
-<<<<<<< Updated upstream
             if len(Fq) < 2:
-=======
-            if len(logF) < 2:
->>>>>>> Stashed changes
                 continue
             h, _ = np.polyfit(log_s_valid, Fq, 1)
             Hq[q] = h
-
-<<<<<<< Updated upstream
-        # 5.  Singularity spectrum
-=======
         # 5 ▸ singularity spectrum
->>>>>>> Stashed changes
         qs = np.array(sorted(Hq.keys()))
         hq = np.array([Hq[q] for q in qs])
         tq = qs * hq - 1
         alpha = np.gradient(tq, qs)
         f_alpha = qs * alpha - tq
-
-<<<<<<< Updated upstream
-=======
-        # wrap arrays in Series so the `.ptp()` helper is available
->>>>>>> Stashed changes
         self.result_ = {
             "q": qs,
             "h": hq,
