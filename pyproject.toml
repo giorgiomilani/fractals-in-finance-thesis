@@ -22,6 +22,8 @@ dependencies = [
     "typer (>=0.15.3,<0.16.0)",
     "rich (>=14.0.0,<15.0.0)",
     "pillow (>=10.0.0,<11.0.0)",
+    "matplotlib (>=3.0.0,<4.0.0)",
+
     "torch (>=2.0.0,<3.0.0)"
 ]
 
@@ -43,6 +45,7 @@ python = ">=3.11,<3.14"
 numpy = "*"
 pandas = "*"
 pillow = "*"
+matplotlib = "*"
 torch = "*"
 
 [tool.poetry.group.dev.dependencies]
