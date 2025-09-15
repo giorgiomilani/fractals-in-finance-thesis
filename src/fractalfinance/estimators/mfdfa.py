@@ -67,6 +67,7 @@ class MFDFA(BaseEstimator):
         max_scale: int | None = None,
         n_scales: int = 20,
         from_levels: bool = False,
+
     ):
         super().__init__(series)
         self.q = q if q is not None else np.arange(-4, 5)  # −4 … 4
@@ -74,6 +75,7 @@ class MFDFA(BaseEstimator):
         self.max_scale = max_scale
         self.n_scales = n_scales
         self.from_levels = from_levels
+
 
     # ------------------------------------------------------------------ #
     @staticmethod
@@ -151,7 +153,12 @@ class MFDFA(BaseEstimator):
                     log_s_valid.append(np.log(s))
             if len(Fq) < 2:
                 continue
-            h, _ = np.polyfit(log_s_valid, Fq, 1)
+            sl = (
+                self._best_range(log_s_valid, Fq, self.min_points, self.r2_thresh)
+                if self.auto_range
+                else slice(0, len(Fq))
+            )
+            h, _ = np.polyfit(np.array(log_s_valid)[sl], np.array(Fq)[sl], 1)
             Hq[q] = h
         # 5 ▸ singularity spectrum
         qs = np.array(sorted(Hq.keys()))

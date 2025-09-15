@@ -31,6 +31,7 @@ class RS(BaseEstimator):
         max_chunk: int | None = None,
         *,
         from_levels: bool = False,
+
     ):
         # ------------------------------------------------------------------ #
         # 1. Work with increments; optionally difference a level path
@@ -71,5 +72,32 @@ class RS(BaseEstimator):
         # ------------------------------------------------------------------ #
         # 3. Linear fit in log–log space: slope = H
         H, _ = np.polyfit(logn, np.log(RS_vals), 1)
-        self.result_ = {"H": float(H)}
+        result = {"H": float(H)}
+
+        if n_surrogates > 0:
+            sur_H = []
+            for _ in range(n_surrogates):
+                perm = np.random.permutation(x)
+                rs_vals_s, logn_s = [], []
+                for n in ns:
+                    k = N // n
+                    if k < 2:
+                        continue
+                    Z = perm[: k * n].reshape(k, n)
+                    rs_seg = []
+                    for row in Z:
+                        cumdev = np.cumsum(row - row.mean())
+                        R = np.ptp(cumdev)
+                        S = row.std(ddof=1)
+                        if S > 0:
+                            rs_seg.append(R / S)
+                    if rs_seg:
+                        rs_vals_s.append(float(np.nanmean(rs_seg)))
+                        logn_s.append(np.log(n))
+                h_s, _ = np.polyfit(logn_s, np.log(rs_vals_s), 1)
+                sur_H.append(h_s)
+            sur_H = np.array(sur_H)
+            result["p_value"] = float((np.abs(sur_H) >= abs(H)).mean())
+
+        self.result_ = result
         return self

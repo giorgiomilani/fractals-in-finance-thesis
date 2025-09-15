@@ -65,5 +65,7 @@ python -m fractalfinance.cli plot gaf   # series with its GASF and GADF
 python -m fractalfinance.cli plot mmar  # multiplicative cascade and MMAR path
 
 
+```
+
 Each command prints the path of the generated figure, making it easy to script
 or embed into reports.
