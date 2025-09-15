@@ -30,3 +30,4 @@ def test_plot_cli(tmp_path):
     )
     assert result.returncode == 0
     assert out.exists()
+
