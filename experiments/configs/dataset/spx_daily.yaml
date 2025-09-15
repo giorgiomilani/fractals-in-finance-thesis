@@ -1,0 +1,3 @@
+name: spx_daily
+path: spx_daily.csv
+freq: 1d

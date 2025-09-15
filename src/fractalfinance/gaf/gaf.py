@@ -3,8 +3,8 @@ from PIL import Image
 
 
 def _to_unit(x: np.ndarray) -> np.ndarray:
-    z = (x - x.mean()) / x.std()
-    return np.tanh(0.01 * z)  # map to (-1,1)
+    x_min, x_max = x.min(), x.max()
+    return 2 * (x - x_min) / (x_max - x_min) - 1
 
 
 def _polar(x: np.ndarray):
