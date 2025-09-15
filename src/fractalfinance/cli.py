@@ -19,6 +19,8 @@ from typing import List
 
 import typer
 
+from . import plotting
+
 # ──────────────────────────────────────────────────────────────────────────────
 # create Typer app; disable Rich markup so help text prints safely in the
 # Windows CP‑1252 console
@@ -54,6 +56,33 @@ def run(
     else:
         typer.echo("Error: experiments.run.main() not found", err=True)
         raise typer.Exit(code=1)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# plotting commands
+# ──────────────────────────────────────────────────────────────────────────────
+plot_app = typer.Typer(help="Generate plots for fractal processes.")
+
+
+@plot_app.command("fbm")
+def fbm_cmd(path: str = "fbm.png") -> None:
+    """Create an FBM plot and save it to PATH."""
+    typer.echo(plotting.plot_fbm(path))
+
+
+@plot_app.command("gaf")
+def gaf_cmd(path: str = "gaf.png") -> None:
+    """Create GASF/GADF plots and save them to PATH."""
+    typer.echo(plotting.plot_gaf(path))
+
+
+@plot_app.command("mmar")
+def mmar_cmd(path: str = "mmar.png") -> None:
+    """Create an MMAR plot and save it to PATH."""
+    typer.echo(plotting.plot_mmar(path))
+
+
+app.add_typer(plot_app, name="plot")
 
 
 # ──────────────────────────────────────────────────────────────────────────────
