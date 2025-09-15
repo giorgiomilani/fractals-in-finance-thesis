@@ -10,6 +10,6 @@ def test_gaf_encode_decode_diagonal():
     assert np.corrcoef(x, x_rec)[0,1] > 0.9
 
 def test_dataset_len_stride():
-    serie = np.arange(300)
-    ds = GAFWindowDataset(serie, win=100, stride=50)
+    series = np.arange(300)
+    ds = GAFWindowDataset(series, win=100, stride=50)
     assert len(ds) == 4
