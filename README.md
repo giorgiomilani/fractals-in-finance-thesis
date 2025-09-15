@@ -20,6 +20,7 @@ can be prototyped quickly.
 Each component is documented with small tests and examples so it can be reused
 in isolation or composed into larger experiments.
 
+
 ## Installation
 
 The project targets Python 3.11+.  Install the package in editable mode
@@ -62,7 +63,7 @@ the current directory:
 python -m fractalfinance.cli plot fbm   # Fractional Brownian motion path
 python -m fractalfinance.cli plot gaf   # series with its GASF and GADF
 python -m fractalfinance.cli plot mmar  # multiplicative cascade and MMAR path
-```
+
 
 Each command prints the path of the generated figure, making it easy to script
 or embed into reports.

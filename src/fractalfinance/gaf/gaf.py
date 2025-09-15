@@ -1,7 +1,6 @@
 import numpy as np
 from PIL import Image
 
-
 def _to_unit(x: np.ndarray) -> tuple[np.ndarray, float, float]:
     """Normalise ``x`` to ``[-1, 1]`` and return bounds."""
     x_min, x_max = float(x.min()), float(x.max())
