@@ -4,5 +4,10 @@ import sys
 
 
 def test_cli_runs():
-    code = subprocess.call([sys.executable, "-m", "fractalfinance.cli", "--help"])
-    assert code == 0
+    result = subprocess.run(
+        [sys.executable, "-m", "fractalfinance.cli", "--help"],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    assert "usage" in result.stdout.lower()
