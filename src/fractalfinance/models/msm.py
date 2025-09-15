@@ -16,6 +16,7 @@ from typing import NamedTuple
 import numpy as np
 from numpy.typing import ArrayLike
 from scipy.special import logsumexp
+from scipy.optimize import minimize
 
 __all__ = ["MSMParams", "simulate", "loglik", "fit"]
 
@@ -159,3 +160,51 @@ def fit(
                 best_ll, best_par = ll, par
 
     return best_par
+
+
+# ------------------------------------------------------------------ #
+def fit_mle(
+    r: ArrayLike,
+    K: int = 6,
+    start: tuple[float, float] = (1.6, 0.05),
+    bounds: tuple[tuple[float, float], tuple[float, float]] = ((1.1, 3.0), (1e-4, 0.5)),
+) -> MSMParams:
+    """Continuous maximum-likelihood estimation of ``(m_H, gamma_1)``.
+
+    Parameters
+    ----------
+    r : array-like
+        Return series.
+    K : int
+        Number of multipliers.
+    start : tuple
+        Initial guess for ``(m_H, gamma_1)``.
+    bounds : tuple
+        Parameter bounds for the optimiser.
+    """
+
+    r = np.asarray(r)
+    sigma2 = np.var(r)
+
+    def _neg_ll(theta: np.ndarray) -> float:
+        mH, g1 = theta
+        par = MSMParams(
+            sigma2=sigma2,
+            m_L=1 / mH,
+            m_H=mH,
+            gamma_1=g1,
+            b=2.0,
+            K=K,
+        )
+        return -loglik(r, par)
+
+    res = minimize(_neg_ll, np.array(start), bounds=bounds, method="L-BFGS-B")
+    mH, g1 = res.x
+    return MSMParams(
+        sigma2=sigma2,
+        m_L=1 / mH,
+        m_H=mH,
+        gamma_1=g1,
+        b=2.0,
+        K=K,
+    )

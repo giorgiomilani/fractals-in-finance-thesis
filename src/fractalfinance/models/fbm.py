@@ -65,12 +65,23 @@ def _hosking(H: float, n: int) -> np.ndarray:
 
 
 # ------------------------------------------------------------------ #
+def _mvn(H: float, n: int) -> np.ndarray:
+    """Approximate FGN via Mandelbrot–Van Ness fractional differencing."""
+    g = np.random.normal(size=n + 1)
+    # coefficients for fractional integration
+    k = np.arange(n)
+    coeff = ((k + 1) ** (H - 0.5)) - (k ** (H - 0.5))
+    fgn = np.convolve(g, coeff, mode="full")[:n]
+    return fgn
+
+
 def fbm(
     H: float,
     n: int,
     length: float = 1.0,
     kind: Literal["level", "increment"] = "level",
     seed: int | None = None,
+    method: Literal["davies-harte", "hosking", "mvn"] = "davies-harte",
 ) -> ArrayLike:
     """
     Parameters
@@ -90,10 +101,17 @@ def fbm(
         np.random.seed(seed)
 
     # FGN generation
-    try:
-        fgn = _davies_harte(H, n)
-    except Exception:
-        fgn = _hosking(H, n)  # extremely rare
+    if method == "davies-harte":
+        try:
+            fgn = _davies_harte(H, n)
+        except Exception:
+            fgn = _hosking(H, n)
+    elif method == "hosking":
+        fgn = _hosking(H, n)
+    elif method == "mvn":
+        fgn = _mvn(H, n)
+    else:
+        raise ValueError("Unknown method")
 
     # scale to time length
     scale = (length / n) ** H

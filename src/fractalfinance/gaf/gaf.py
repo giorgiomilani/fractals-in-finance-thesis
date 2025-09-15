@@ -1,8 +1,12 @@
 import numpy as np
 from PIL import Image
 
-def _to_unit(x: np.ndarray) -> tuple[np.ndarray, float, float]:
-    """Normalise ``x`` to ``[-1, 1]`` and return bounds."""
+def _to_unit(x: np.ndarray, detrend: bool = False) -> tuple[np.ndarray, float, float]:
+    """Normalise ``x`` to ``[-1, 1]`` with optional linear detrending."""
+    if detrend:
+        t = np.arange(len(x))
+        a, b = np.polyfit(t, x, 1)
+        x = x - (a * t + b)
     x_min, x_max = float(x.min()), float(x.max())
     unit = 2 * (x - x_min) / (x_max - x_min) - 1
     return unit, x_min, x_max
@@ -14,14 +18,14 @@ def _polar(x: np.ndarray):
     return rho, phi
 
 
-def GASF(x: np.ndarray) -> np.ndarray:
-    u, _, _ = _to_unit(x)
+def GASF(x: np.ndarray, detrend: bool = False) -> np.ndarray:
+    u, _, _ = _to_unit(x, detrend=detrend)
     rho, phi = _polar(u)
     return np.cos(phi[:, None] + phi[None, :])
 
 
-def GADF(x: np.ndarray) -> np.ndarray:
-    u, _, _ = _to_unit(x)
+def GADF(x: np.ndarray, detrend: bool = False) -> np.ndarray:
+    u, _, _ = _to_unit(x, detrend=detrend)
     rho, phi = _polar(u)
     return np.sin(phi[None, :] - phi[:, None])
 
@@ -31,6 +35,7 @@ def gaf_encode(
     kind: str = "gasf",
     resize: int | None = 128,
     return_params: bool = False,
+    detrend: bool = False,
 ) -> np.ndarray | tuple[np.ndarray, float, float, np.ndarray]:
     """Encode ``x`` into a Gramian Angular Field.
 
@@ -39,14 +44,27 @@ def gaf_encode(
     normalised series so that a perfect reconstruction is possible with
     :func:`gaf_decode`.
     """
-    u, x_min, x_max = _to_unit(x)
-    img = GASF(u) if kind.lower() == "gasf" else GADF(u)
+    u, x_min, x_max = _to_unit(x, detrend=detrend)
+    img = GASF(u, detrend=False) if kind.lower() == "gasf" else GADF(u, detrend=False)
     if resize:
         img = np.array(Image.fromarray(img).resize((resize, resize), Image.BILINEAR))
     img = img.astype(np.float32)
     if return_params:
         return img, x_min, x_max, np.sign(u)
     return img
+
+
+def mtf_encode(x: np.ndarray, bins: int = 8) -> np.ndarray:
+    """Encode series into a Markov Transition Field."""
+    x_norm = (x - x.min()) / (x.max() - x.min())
+    states = np.linspace(0, 1, bins + 1)
+    digitized = np.digitize(x_norm, states) - 1
+    trans = np.zeros((bins, bins))
+    for i in range(len(digitized) - 1):
+        trans[digitized[i], digitized[i + 1]] += 1
+    prob = trans / trans.sum(axis=1, keepdims=True)
+    mtf = prob[digitized][:, digitized]
+    return mtf
 
 
 def gaf_decode(

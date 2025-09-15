@@ -64,12 +64,32 @@ class MFDFA(BaseEstimator):
         min_scale: int = 8,
         max_scale: int | None = None,
         n_scales: int = 20,
+        auto_range: bool = False,
+        r2_thresh: float = 0.98,
+        min_points: int = 5,
     ):
         super().__init__(series)
         self.q = q if q is not None else np.arange(-4, 5)  # −4 … 4
         self.min_scale = min_scale
         self.max_scale = max_scale
         self.n_scales = n_scales
+        self.auto_range = auto_range
+        self.r2_thresh = r2_thresh
+        self.min_points = min_points
+
+    # ------------------------------------------------------------------ #
+    @staticmethod
+    def _best_range(log_s: list[float], Fq: list[float], min_points: int, r2: float):
+        n = len(log_s)
+        best = slice(0, n)
+        best_r2 = -np.inf
+        for i in range(n - min_points + 1):
+            for j in range(i + min_points, n + 1):
+                r_val = np.corrcoef(log_s[i:j], Fq[i:j])[0, 1] ** 2
+                if r_val > best_r2 and r_val >= r2:
+                    best_r2 = r_val
+                    best = slice(i, j)
+        return best
 
     # ------------------------------------------------------------------ #
     @staticmethod
@@ -137,7 +157,12 @@ class MFDFA(BaseEstimator):
                     log_s_valid.append(np.log(s))
             if len(Fq) < 2:
                 continue
-            h, _ = np.polyfit(log_s_valid, Fq, 1)
+            sl = (
+                self._best_range(log_s_valid, Fq, self.min_points, self.r2_thresh)
+                if self.auto_range
+                else slice(0, len(Fq))
+            )
+            h, _ = np.polyfit(np.array(log_s_valid)[sl], np.array(Fq)[sl], 1)
             Hq[q] = h
         # 5 ▸ singularity spectrum
         qs = np.array(sorted(Hq.keys()))
