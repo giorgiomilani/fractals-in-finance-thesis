@@ -55,6 +55,11 @@ class BaseEstimator(abc.ABC):
             raise ValueError("Input series must be one‑dimensional")
 
         self.result_: dict[str, Any] | None = None
+        # Defaults for scaling-range refinement used by some estimators.
+        self.auto_range: bool = False
+        self.min_points: int = 5
+        self.r2_thresh: float = 0.98
+        self.n_boot: int = 0
 
     # ------------------------------------------------------------------
     @abc.abstractmethod
@@ -119,3 +124,4 @@ class BaseEstimator(abc.ABC):
                     best_slice = slice(start, stop)
 
         return best_slice
+

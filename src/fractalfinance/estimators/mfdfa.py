@@ -70,6 +70,7 @@ class MFDFA(BaseEstimator):
         auto_range: bool | None = None,
         min_points: int | None = None,
         r2_thresh: float | None = None,
+
     ):
         super().__init__(series)
         self.q = q if q is not None else np.arange(-4, 5)  # −4 … 4
@@ -83,6 +84,7 @@ class MFDFA(BaseEstimator):
             self.min_points = int(min_points)
         if r2_thresh is not None:
             self.r2_thresh = float(r2_thresh)
+
 
 
     # ------------------------------------------------------------------ #
@@ -128,6 +130,8 @@ class MFDFA(BaseEstimator):
 
         # 3 ▸ log‑spaced scales
         max_scale = self.max_scale or N // 4
+        if max_scale < self.min_scale:
+            raise ValueError("max_scale must be >= min_scale")
         scales = np.unique(
             np.floor(
                 np.logspace(
@@ -161,12 +165,16 @@ class MFDFA(BaseEstimator):
                     log_s_valid.append(np.log(s))
             if len(Fq) < 2:
                 continue
+            log_s_arr = np.asarray(log_s_valid, dtype=float)
+            Fq_arr = np.asarray(Fq, dtype=float)
             sl = (
-                self._best_range(log_s_valid, Fq, self.min_points, self.r2_thresh)
+                self._best_range(log_s_arr, Fq_arr, self.min_points, self.r2_thresh)
                 if self.auto_range
-                else slice(0, len(Fq))
+                else slice(0, len(Fq_arr))
             )
-            h, _ = np.polyfit(np.array(log_s_valid)[sl], np.array(Fq)[sl], 1)
+            if log_s_arr[sl].size < 2:
+                continue
+            h, _ = np.polyfit(log_s_arr[sl], Fq_arr[sl], 1)
             Hq[q] = h
         # 5 ▸ singularity spectrum
         qs = np.array(sorted(Hq.keys()))

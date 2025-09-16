@@ -35,11 +35,12 @@ class DFA(BaseEstimator):
         r2_thresh: float | None = None,
         n_boot: int | None = None,
 
+
     ):
         super().__init__(series)
-        self.min_scale = min_scale
+        self.min_scale = int(min_scale)
         self.max_scale = max_scale
-        self.n_scales = n_scales
+        self.n_scales = int(n_scales)
         self.from_levels = from_levels
         if auto_range is not None:
             self.auto_range = bool(auto_range)
@@ -49,6 +50,7 @@ class DFA(BaseEstimator):
             self.r2_thresh = float(r2_thresh)
         if n_boot is not None:
             self.n_boot = int(n_boot)
+
 
 
     # ------------------------------------------------------------------ #
@@ -89,6 +91,8 @@ class DFA(BaseEstimator):
 
         # 4. Log‑spaced scales
         max_scale = self.max_scale or N // 4
+        if max_scale < self.min_scale:
+            raise ValueError("max_scale must be >= min_scale")
         scales = np.unique(
             np.floor(
                 np.logspace(
@@ -123,6 +127,8 @@ class DFA(BaseEstimator):
                 prof_b = np.cumsum(resample - resample.mean())
                 F2_b = np.array([self._detrended_var(prof_b, s) for s in scales])
                 mask_b = np.isfinite(F2_b) & (F2_b > 0)
+                if mask_b.sum() < 2:
+                    continue
                 log_s_b = np.log(scales[mask_b])
                 log_F_b = 0.5 * np.log(F2_b[mask_b])
                 sl_b = (
@@ -130,8 +136,13 @@ class DFA(BaseEstimator):
                     if self.auto_range
                     else slice(0, len(log_s_b))
                 )
+                if log_s_b[sl_b].size < 2:
+                    continue
                 H_b, _ = np.polyfit(log_s_b[sl_b], log_F_b[sl_b], 1)
                 boot.append(H_b)
-            result["H_std"] = float(np.std(boot, ddof=1))
+            if len(boot) == 1:
+                result["H_std"] = 0.0
+            elif len(boot) > 1:
+                result["H_std"] = float(np.std(boot, ddof=1))
         self.result_ = result
         return self
