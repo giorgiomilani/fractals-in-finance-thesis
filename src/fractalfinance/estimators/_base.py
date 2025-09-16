@@ -16,7 +16,32 @@ import pandas as pd
 
 
 class BaseEstimator(abc.ABC):
-    """Minimal parent class; concrete estimators implement `.fit()`."""
+    """Minimal parent class; concrete estimators implement `.fit()`.
+
+    Besides coercing the input to a one‑dimensional float array, the base
+    class centralises a couple of convenience attributes used throughout the
+    thesis' estimators:
+
+    ``auto_range``
+        When ``True`` the estimator automatically selects the most linear
+        region of a log–log diagram.  The helper :meth:`_best_range` mirrors
+        the manual diagnostic procedure used in the empirical chapters by
+        scanning all contiguous windows and picking the longest stretch whose
+        :math:`R^2` exceeds ``r2_thresh``.  If no window satisfies the
+        criterion the whole range is used.
+
+    ``min_points`` and ``r2_thresh``
+        Respectively the minimum number of scales required for the automatic
+        selection and the minimum acceptable :math:`R^2` of the linear fit.
+
+    These defaults keep the estimators aligned with the methodology described
+    in Chapter 5 and can still be overridden on a per‑instance basis.
+    """
+
+    auto_range: bool = False
+    min_points: int = 6
+    r2_thresh: float = 0.98
+    n_boot: int = 0
 
     def __init__(self, series: pd.Series | np.ndarray | list[float]):
         # ------------------------------------------------------------------
@@ -50,56 +75,53 @@ class BaseEstimator(abc.ABC):
         min_points: int,
         r2_thresh: float,
     ) -> slice:
-        """Return contiguous slice with the highest linear *R*² score.
+        """Return the slice corresponding to the most linear log–log region.
 
         Parameters
         ----------
-        x, y : array-like
-            Log-scale abscissa and ordinate of the scaling regression.
+        x, y : ndarray
+            Abscissa/ordinate coordinates of the log–log diagram (already in
+            logarithmic units).
         min_points : int
-            Minimum number of points to keep in the fit.
+            Minimum number of points required for the regression window.
         r2_thresh : float
-            Target coefficient of determination.  When no window reaches
-            this threshold the function returns the contiguous window with
-            the highest *R*².
+            Minimum :math:`R^2` accepted for the window.  If no contiguous
+            window attains the threshold the function falls back to the whole
+            range.
         """
 
-        x_arr = np.asarray(x, dtype=float)
-        y_arr = np.asarray(y, dtype=float)
-        n = len(x_arr)
-        min_points = max(2, int(min_points))
+        x = np.asarray(x, dtype=float)
+        y = np.asarray(y, dtype=float)
+        n = x.size
+        if n == 0:
+            return slice(0, 0)
         if n <= min_points:
             return slice(0, n)
 
-        best = slice(0, n)
-        best_len = 0
-        best_r2 = -np.inf
-        fallback = slice(0, n)
-        fallback_r2 = -np.inf
+        best_slice = slice(0, n)
+        best_score: tuple[int, float, float] | None = None
+
+        def _ols_stats(start: int, stop: int) -> tuple[float, float]:
+            xs = x[start:stop]
+            ys = y[start:stop]
+            slope, intercept = np.polyfit(xs, ys, 1)
+            fitted = slope * xs + intercept
+            resid = ys - fitted
+            ss_res = float(np.sum(resid**2))
+            ss_tot = float(np.sum((ys - ys.mean()) ** 2))
+            r2 = 1.0 - ss_res / ss_tot if ss_tot > 0 else 1.0
+            return r2, slope
 
         for start in range(0, n - min_points + 1):
             for stop in range(start + min_points, n + 1):
-                xs = x_arr[start:stop]
-                ys = y_arr[start:stop]
-                if xs.size < 2:
-                    continue
-                slope, intercept = np.polyfit(xs, ys, 1)
-                fitted = slope * xs + intercept
-                ss_tot = np.sum((ys - ys.mean()) ** 2)
-                ss_res = np.sum((ys - fitted) ** 2)
-                r2 = 1.0 if ss_tot == 0 else 1.0 - ss_res / ss_tot
+                r2, slope = _ols_stats(start, stop)
                 length = stop - start
+                priority = 1 if r2 >= r2_thresh else 0
+                score = (priority, length, r2)
 
-                if r2 >= r2_thresh:
-                    if length > best_len or (length == best_len and r2 > best_r2):
-                        best = slice(start, stop)
-                        best_len = length
-                        best_r2 = r2
+                if best_score is None or score > best_score:
+                    best_score = score
+                    best_slice = slice(start, stop)
 
-                if r2 > fallback_r2:
-                    fallback = slice(start, stop)
-                    fallback_r2 = r2
+        return best_slice
 
-        if best_len >= min_points and best_r2 >= r2_thresh:
-            return best
-        return fallback

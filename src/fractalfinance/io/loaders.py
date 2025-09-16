@@ -146,3 +146,12 @@ def load_binance(
     df = pd.concat(frames).set_index("ts")["close"].astype(float)
     df.index = pd.to_datetime(df.index, unit="ms", utc=True)
     return df.rename(symbol).sort_index()
+
+
+def load_yahoo(*args, **kwargs):
+    """Placeholder Yahoo! Finance loader (requires optional ``yfinance``)."""
+
+    raise ImportError(
+        "load_yahoo requires the optional 'yfinance' dependency which is not "
+        "bundled with the thesis environment."
+    )

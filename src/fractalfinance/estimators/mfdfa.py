@@ -67,9 +67,9 @@ class MFDFA(BaseEstimator):
         max_scale: int | None = None,
         n_scales: int = 20,
         from_levels: bool = False,
-        auto_range: bool = False,
-        min_points: int = 5,
-        r2_thresh: float = 0.98,
+        auto_range: bool | None = None,
+        min_points: int | None = None,
+        r2_thresh: float | None = None,
 
     ):
         super().__init__(series)
@@ -78,11 +78,13 @@ class MFDFA(BaseEstimator):
         self.max_scale = max_scale
         self.n_scales = n_scales
         self.from_levels = from_levels
-        self.auto_range = bool(auto_range)
-        self.min_points = max(2, int(min_points))
-        self.r2_thresh = float(r2_thresh)
-        if not 0 <= self.r2_thresh <= 1:
-            raise ValueError("r2_thresh must lie in [0, 1]")
+        if auto_range is not None:
+            self.auto_range = bool(auto_range)
+        if min_points is not None:
+            self.min_points = int(min_points)
+        if r2_thresh is not None:
+            self.r2_thresh = float(r2_thresh)
+
 
 
     # ------------------------------------------------------------------ #

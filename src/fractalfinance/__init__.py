@@ -5,7 +5,8 @@ try:
 except Exception:
     __version__ = "0.0.0"
 
-from .estimators import DFA, MFDFA, RS, WTMM  # noqa
+from . import geometry  # noqa
+from .estimators import DFA, MFDFA, RS, WTMM, ScalingResult, StructureFunction  # noqa
 try:  # optional data-loading helpers (require third-party deps)
     from .io import load_binance, load_csv, save_parquet  # noqa
 except Exception:  # pragma: no cover - dependency missing
@@ -22,4 +23,7 @@ __all__ = [
     "DFA",
     "MFDFA",
     "WTMM",
+    "StructureFunction",
+    "ScalingResult",
+    "geometry",
 ]
