@@ -1,30 +1,77 @@
-import numpy as np, torch
+from __future__ import annotations
+
+from collections.abc import Sequence
+from typing import Callable
+
+import numpy as np
+import torch
 from torch.utils.data import Dataset
-from .gaf import gaf_encode
+
+from .gaf import gaf_cube
+
 
 class GAFWindowDataset(Dataset):
-    """
-    Roll a sliding window over a 1-D series and return GASF images.
-    Optionally attach a label per window (e.g., volatility regime).
-    """
-    def __init__(self, series: np.ndarray, win: int = 256,
-                 stride: int = 16, resize: int = 128,
-                 labels: np.ndarray | None = None):
-        self.series = series
-        self.win = win
-        self.stride = stride
-        self.resize = resize
+    """Sliding-window dataset returning stacked GAF cubes."""
+
+    def __init__(
+        self,
+        series: np.ndarray,
+        *,
+        win: int = 256,
+        stride: int = 16,
+        resize: int | Sequence[int] = 128,
+        kinds: Sequence[str] = ("gasf",),
+        detrend: bool = False,
+        scale: str = "symmetric",
+        resample: str = "paa",
+        to_uint8: bool = False,
+        labels: np.ndarray | None = None,
+        transform: Callable[[torch.Tensor], torch.Tensor] | None = None,
+    ) -> None:
+        self.series = np.asarray(series, dtype=float)
+        self.win = int(win)
+        self.stride = int(stride)
+        if isinstance(resize, int):
+            self.resolutions = (int(resize),)
+        else:
+            self.resolutions = tuple(int(r) for r in resize)
+        self.kinds = tuple(kinds)
+        self.detrend = bool(detrend)
+        self.scale = scale
+        self.resample = resample
+        self.to_uint8 = bool(to_uint8)
         self.labels = labels
+        self.transform = transform
+        if self.win <= 0 or self.stride <= 0:
+            raise ValueError("win and stride must be positive integers")
 
-    def __len__(self): return (len(self.series) - self.win) // self.stride
+    def __len__(self) -> int:
+        total = len(self.series) - self.win
+        if total < 0:
+            return 0
+        return total // self.stride
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
         i = idx * self.stride
-        x = self.series[i : i + self.win]
-        img = gaf_encode(x, "gasf", self.resize)   # (H,W)
-        img = torch.tensor(img).unsqueeze(0)       # C×H×W
+        window = self.series[i : i + self.win]
+        cube = gaf_cube(
+            window,
+            resolutions=self.resolutions,
+            kinds=self.kinds,
+            detrend=self.detrend,
+            scale=self.scale,
+            resample=self.resample,
+            to_uint8=self.to_uint8,
+        )
+        tensor = torch.tensor(cube)
+        if not self.to_uint8:
+            tensor = tensor.float()
+        if self.transform is not None:
+            tensor = self.transform(tensor)
+        if tensor.ndim == 2:
+            tensor = tensor.unsqueeze(0)
         if self.labels is None:
             y = torch.tensor(0)
         else:
             y = torch.tensor(self.labels[idx])
-        return img.float(), y
+        return tensor, y
