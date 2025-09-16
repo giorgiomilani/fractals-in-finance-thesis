@@ -20,7 +20,7 @@ from .msm import MSMParams, loglik as msm_loglik, simulate as msm_simulate, fit 
 from .msm_class import MSM, Params as MSMParamsClass
 
 # ── MMAR (multifractal measure & FBM)  ─────────────────────────────────
-from .mmar import CascadeParams
+from .mmar import CascadeParams, calibrate as mmar_calibrate, generate_cascade
 from .mmar import simulate as _mmar_simulate  # real implementation
 
 # ── Multifractal random walk (MRW) ──────────────────────────────────────
@@ -73,6 +73,7 @@ def _wrapper_mmar_simulate(
 # public API (new + legacy)
 mmar_simulate = _wrapper_mmar_simulate
 simulate = _wrapper_mmar_simulate  # legacy alias
+calibrate = mmar_calibrate
 
 # ---------------------------------------------------------------------
 __all__ = [
@@ -88,6 +89,9 @@ __all__ = [
     "MSMParamsClass",
     # MMAR
     "CascadeParams",
+    "generate_cascade",
+    "mmar_calibrate",
+    "calibrate",
     "mmar_simulate",
     "simulate",
     # MRW

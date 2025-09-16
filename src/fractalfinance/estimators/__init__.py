@@ -1,4 +1,5 @@
 from .dfa import DFA
+from .fbm import fbm_covariance, fbm_mle, fbm_wavelet_whittle
 from .mfdfa import MFDFA
 from .rs import RS
 from .structure import ScalingResult, StructureFunction
@@ -11,4 +12,7 @@ __all__ = [
     "WTMM",
     "StructureFunction",
     "ScalingResult",
+    "fbm_covariance",
+    "fbm_mle",
+    "fbm_wavelet_whittle",
 ]
