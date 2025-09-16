@@ -23,6 +23,11 @@ from .msm_class import MSM, Params as MSMParamsClass
 from .mmar import CascadeParams
 from .mmar import simulate as _mmar_simulate  # real implementation
 
+# ── Multifractal random walk (MRW) ──────────────────────────────────────
+from .mrw import MRWParams
+from .mrw import simulate as mrw_simulate
+from .mrw import structure_exponent as mrw_structure_exponent
+
 # ─── UNIVERSAL MMAR SIMULATION WRAPPER ────────────────────────────────
 def _wrapper_mmar_simulate(
     n: int,
@@ -85,6 +90,10 @@ __all__ = [
     "CascadeParams",
     "mmar_simulate",
     "simulate",
+    # MRW
+    "MRWParams",
+    "mrw_simulate",
+    "mrw_structure_exponent",
     # Bench‑mark volatility models
     "GARCH",
     "HAR",

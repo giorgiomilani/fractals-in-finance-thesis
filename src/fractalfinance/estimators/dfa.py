@@ -2,12 +2,12 @@
 
 This implementation follows the standard formulation used in the
 thesis, where the *profile* is built by cumulatively summing the
-mean‑centered input series :math:`x_k`.  When the supplied data are
-*level* observations of a process such as fractional Brownian motion,
-setting ``from_levels=True`` first differences the series so that the
-estimated slope maps to the Hurst exponent :math:`H` rather than
-``H+1``.  By default the estimator assumes the input already consists of
-increments (returns).
+mean‑centered input series :math:`x_k`.  By default the estimator treats
+the provided data as *level* observations of a process such as
+fractional Brownian motion and differences them (``from_levels=True``)
+so that the estimated slope maps to the Hurst exponent :math:`H` rather
+than ``H+1``.  Set ``from_levels=False`` when the series already
+represents increments (returns).
 
 * Skips scales where fewer than two windows fit.
 * Requires at least two finite fluctuation points for regression.
@@ -29,7 +29,11 @@ class DFA(BaseEstimator):
         min_scale: int = 8,
         max_scale: int | None = None,
         n_scales: int = 20,
-        from_levels: bool = False,
+        from_levels: bool = True,
+        auto_range: bool | None = None,
+        min_points: int | None = None,
+        r2_thresh: float | None = None,
+        n_boot: int | None = None,
 
     ):
         super().__init__(series)
@@ -37,6 +41,14 @@ class DFA(BaseEstimator):
         self.max_scale = max_scale
         self.n_scales = n_scales
         self.from_levels = from_levels
+        if auto_range is not None:
+            self.auto_range = bool(auto_range)
+        if min_points is not None:
+            self.min_points = int(min_points)
+        if r2_thresh is not None:
+            self.r2_thresh = float(r2_thresh)
+        if n_boot is not None:
+            self.n_boot = int(n_boot)
 
 
     # ------------------------------------------------------------------ #

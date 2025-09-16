@@ -1,11 +1,14 @@
-# placeholders for later:
 from .dfa import DFA
-from .mfdfa import MFDFA  # add this import
+from .mfdfa import MFDFA
 from .rs import RS
-
-__all__ = ["RS", "DFA", "MFDFA", "WTMM"]
+from .structure import ScalingResult, StructureFunction
 from .wtmm import WTMM
 
-__all__ = ["RS", "DFA", "MFDFA", "WTMM"]
-
-__all__ = ["RS", "DFA", "MFDFA", "WTMM"]
+__all__ = [
+    "RS",
+    "DFA",
+    "MFDFA",
+    "WTMM",
+    "StructureFunction",
+    "ScalingResult",
+]

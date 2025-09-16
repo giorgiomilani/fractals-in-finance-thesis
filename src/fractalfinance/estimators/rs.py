@@ -31,6 +31,7 @@ class RS(BaseEstimator):
         max_chunk: int | None = None,
         *,
         from_levels: bool = False,
+        n_surrogates: int = 0,
 
     ):
         # ------------------------------------------------------------------ #
