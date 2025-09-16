@@ -31,6 +31,7 @@ class RS(BaseEstimator):
         max_chunk: int | None = None,
         *,
         from_levels: bool = False,
+        n_surrogates: int = 0,
 
     ):
         # ------------------------------------------------------------------ #
@@ -49,6 +50,9 @@ class RS(BaseEstimator):
                 int
             )
         )
+
+        if n_surrogates < 0:
+            raise ValueError("n_surrogates must be non-negative")
 
         RS_vals, logn = [], []
         for n in ns:
@@ -71,10 +75,15 @@ class RS(BaseEstimator):
 
         # ------------------------------------------------------------------ #
         # 3. Linear fit in log–log space: slope = H
-        H, _ = np.polyfit(logn, np.log(RS_vals), 1)
+        logn_arr = np.asarray(logn, dtype=float)
+        RS_arr = np.asarray(RS_vals, dtype=float)
+        if logn_arr.size < 2:
+            raise RuntimeError("RS: not enough valid window sizes for regression.")
+        H, _ = np.polyfit(logn_arr, np.log(RS_arr), 1)
         result = {"H": float(H)}
 
         if n_surrogates > 0:
+            n_surrogates = int(n_surrogates)
             sur_H = []
             for _ in range(n_surrogates):
                 perm = np.random.permutation(x)
@@ -94,10 +103,13 @@ class RS(BaseEstimator):
                     if rs_seg:
                         rs_vals_s.append(float(np.nanmean(rs_seg)))
                         logn_s.append(np.log(n))
-                h_s, _ = np.polyfit(logn_s, np.log(rs_vals_s), 1)
+                if len(rs_vals_s) < 2:
+                    continue
+                h_s, _ = np.polyfit(np.array(logn_s), np.log(rs_vals_s), 1)
                 sur_H.append(h_s)
-            sur_H = np.array(sur_H)
-            result["p_value"] = float((np.abs(sur_H) >= abs(H)).mean())
+            if sur_H:
+                sur_H = np.array(sur_H)
+                result["p_value"] = float((np.abs(sur_H) >= abs(H)).mean())
 
         self.result_ = result
         return self

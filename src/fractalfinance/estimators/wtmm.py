@@ -134,13 +134,15 @@ class WTMM(BaseEstimator):
                         Zs[:, j] = np.nan
                         continue
                     mod_vals = np.abs(coeffs_s[j, maxima_idx])
+                    mod_vals = mod_vals[mod_vals > 0]
+                    if mod_vals.size == 0:
+                        Zs[:, j] = np.nan
+                        continue
                     for iq, qv in enumerate(self.q):
                         if qv == 0:
-                            Zs[iq, j] = np.exp(np.nanmean(np.log(mod_vals)))
+                            Zs[iq, j] = float(mod_vals.size)
                         else:
-                            Zs[iq, j] = (
-                                np.nanmean(mod_vals**qv)
-                            ) ** (1.0 / qv)
+                            Zs[iq, j] = np.nansum(mod_vals**qv)
                 tau_s = np.empty_like(self.q)
                 for i in range(self.q.size):
                     mask = np.isfinite(Zs[i])
