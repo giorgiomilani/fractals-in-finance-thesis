@@ -46,12 +46,28 @@ listed as project dependencies.
 The Typer-based CLI exposes experiment runners and helpers:
 
 ```bash
+# after `pip install -e .` or `export PYTHONPATH=src`
 python -m fractalfinance.cli --help
 python -m fractalfinance.cli run model=msm dataset=btc_minute
 ```
 
 Hydra configuration files for datasets, models and risk metrics live in
 `experiments/configs`.
+
+### Built-in analyses
+
+The CLI can execute the full S&P 500 daily workflow used in the thesis.  All
+outputs land in ``analysis_outputs/<subdir>`` so plots remain discoverable:
+
+```bash
+python -m fractalfinance.cli examples sp500-daily --start 2022-01-01 \
+    --end 2024-12-31 --output-subdir sp500_daily --show-summary
+```
+
+The command fetches data from Yahoo! Finance, fits AR(1)-GARCH and MSM models,
+computes fractal diagnostics, and saves both the figures and a JSON summary.  A
+list of generated image paths is echoed after the run so you can open them
+immediately.
 
 ## Plotting
 
@@ -62,10 +78,10 @@ the current directory:
 ```bash
 python -m fractalfinance.cli plot fbm   # Fractional Brownian motion path
 python -m fractalfinance.cli plot gaf   # series with its GASF and GADF
-python -m fractalfinance.cli plot mmar  # multiplicative cascade and MMAR path
-
-
+python -m fractalfinance.cli plot mmar  # cascade returns + price path
 ```
 
-Each command prints the path of the generated figure, making it easy to script
-or embed into reports.
+All plotting helpers now accept user-provided series, so you can reuse them to
+visualise your own datasets.  When no output path is supplied they write to the
+project's ``analysis_outputs`` directory by default, keeping artefacts in a
+single location.

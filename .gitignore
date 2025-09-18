@@ -1,0 +1,14 @@
+# Bytecode and cache directories
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Pytest cache
+.pytest_cache/
+
+# Generated analysis graphics
+analysis_outputs/**/*.png
+analysis_outputs/**/*.jpg
+analysis_outputs/**/*.jpeg
+analysis_outputs/**/*.svg
+analysis_outputs/**/*.pdf

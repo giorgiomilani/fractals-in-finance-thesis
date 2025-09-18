@@ -40,20 +40,19 @@ class GAFWindowDataset(Dataset):
         self.scale = scale
         self.resample = resample
         self.to_uint8 = bool(to_uint8)
-        self.labels = labels
         self.transform = transform
         if self.win <= 0 or self.stride <= 0:
             raise ValueError("win and stride must be positive integers")
 
+        self._starts = self._compute_window_starts()
+        self.labels = self._prepare_labels(labels)
+
     def __len__(self) -> int:
-        total = len(self.series) - self.win
-        if total < 0:
-            return 0
-        return total // self.stride
+        return len(self._starts)
 
     def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
-        i = idx * self.stride
-        window = self.series[i : i + self.win]
+        start = self._starts[idx]
+        window = self.series[start : start + self.win]
         cube = gaf_cube(
             window,
             resolutions=self.resolutions,
@@ -70,8 +69,45 @@ class GAFWindowDataset(Dataset):
             tensor = self.transform(tensor)
         if tensor.ndim == 2:
             tensor = tensor.unsqueeze(0)
-        if self.labels is None:
-            y = torch.tensor(0)
-        else:
-            y = torch.tensor(self.labels[idx])
+        label = int(self.labels[idx]) if len(self.labels) else 0
+        y = torch.tensor(label, dtype=torch.long)
         return tensor, y
+
+    def _compute_window_starts(self) -> list[int]:
+        if len(self.series) < self.win:
+            return []
+        last_start = len(self.series) - self.win
+        starts = list(range(0, last_start + 1, self.stride))
+        if starts and starts[-1] != last_start:
+            starts.append(last_start)
+        return starts
+
+    def _prepare_labels(self, labels: np.ndarray | None) -> np.ndarray:
+        if not self._starts:
+            return np.array([], dtype=int)
+        if labels is not None:
+            arr = np.asarray(labels)
+            if arr.shape[0] != len(self._starts):
+                raise ValueError("labels length must match number of windows")
+            return arr.astype(int)
+        return self._default_labels()
+
+    def _default_labels(self) -> np.ndarray:
+        window_returns = np.array(
+            [float(self.series[start : start + self.win].sum()) for start in self._starts]
+        )
+        if np.allclose(window_returns, window_returns[0]):
+            return np.zeros_like(window_returns, dtype=int)
+
+        q1, q2 = np.quantile(window_returns, [1 / 3, 2 / 3])
+        if np.isclose(q1, q2):
+            labels = np.where(
+                window_returns < 0,
+                0,
+                np.where(window_returns > 0, 2, 1),
+            )
+            return labels.astype(int)
+
+        bins = [-np.inf, q1, q2, np.inf]
+        labels = np.digitize(window_returns, bins) - 1
+        return labels.astype(int)
