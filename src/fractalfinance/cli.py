@@ -20,6 +20,7 @@ from typing import List
 import typer
 
 from . import plotting
+from .plotting import DEFAULT_OUTPUT_DIR
 
 # ──────────────────────────────────────────────────────────────────────────────
 # create Typer app; disable Rich markup so help text prints safely in the
@@ -88,19 +89,19 @@ plot_app = typer.Typer(help="Generate plots for fractal processes.")
 
 
 @plot_app.command("fbm")
-def fbm_cmd(path: str = "fbm.png") -> None:
+def fbm_cmd(path: Path = DEFAULT_OUTPUT_DIR / "fbm.png") -> None:
     """Create an FBM plot and save it to PATH."""
     typer.echo(plotting.plot_fbm(path))
 
 
 @plot_app.command("gaf")
-def gaf_cmd(path: str = "gaf.png") -> None:
+def gaf_cmd(path: Path = DEFAULT_OUTPUT_DIR / "gaf.png") -> None:
     """Create GASF/GADF plots and save them to PATH."""
     typer.echo(plotting.plot_gaf(path))
 
 
 @plot_app.command("mmar")
-def mmar_cmd(path: str = "mmar.png") -> None:
+def mmar_cmd(path: Path = DEFAULT_OUTPUT_DIR / "mmar.png") -> None:
     """Create an MMAR plot and save it to PATH."""
     typer.echo(plotting.plot_mmar(path))
 
