@@ -1,0 +1,64 @@
+{
+  "key": "apple",
+  "label": "Apple Inc.",
+  "symbol": "AAPL",
+  "asset_type": "equity",
+  "observations": 1435,
+  "span": "2020-01-02 \u2192 2025-09-18",
+  "price_change": 2.1679039824651194,
+  "annualised_return": 0.20249037042630352,
+  "annualised_volatility": 0.3223440174894246,
+  "annualisation_days": 252.0,
+  "skew": 0.027526918095229277,
+  "excess_kurtosis": 6.306305039629554,
+  "garch": {
+    "params": {
+      "Const": 0.13197568528010345,
+      "ret_pct[1]": -0.005630887690775328,
+      "omega": 0.15450362895249475,
+      "alpha[1]": 0.10145584970080536,
+      "beta[1]": 0.8588432382773056
+    },
+    "last_cond_vol_daily": 0.016153650634058426,
+    "last_cond_vol_annual": 0.2564312540612366,
+    "forecast_daily_vol": [
+      0.015595079504980071,
+      0.015780020878833,
+      0.015955376060053296,
+      0.016121974352830894,
+      0.016280353986077554
+    ],
+    "forecast_annual_vol": [
+      0.2475642122787453,
+      0.2505000655727942,
+      0.2532837427764876,
+      0.25592840868571226,
+      0.25844260741956193
+    ]
+  },
+  "msm": {
+    "sigma2": 0.00041203673603919304,
+    "m_L": 0.625,
+    "m_H": 1.5999999999999999,
+    "gamma_1": 0.01,
+    "b": 2.0,
+    "K": 5
+  },
+  "fractal": {
+    "RS_H": 0.5849564210637698,
+    "DFA_H": 0.4688610702904469,
+    "Structure_H": 0.4985778195981259,
+    "Structure_lambda": 0.2038070377552678,
+    "Structure_delta_alpha": 0.1204509204455021,
+    "MFDFA_h2": 0.4706573303077803,
+    "MFDFA_width": 0.5065599032089272,
+    "WTMM_width": 0.07906576715654037
+  },
+  "outputs": {
+    "price_path": "analysis_outputs/multi_asset/apple_daily/apple_price.png",
+    "returns": "analysis_outputs/multi_asset/apple_daily/apple_returns.png",
+    "garch": "analysis_outputs/multi_asset/apple_daily/apple_garch.png",
+    "mfdfa": "analysis_outputs/multi_asset/apple_daily/apple_mfdfa.png"
+  },
+  "notes": null
+}

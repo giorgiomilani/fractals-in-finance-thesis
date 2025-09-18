@@ -144,6 +144,113 @@ def sp500_daily_cmd(
         typer.echo(json.dumps(summary, indent=2))
 
 
+@examples_app.command("multi-asset")
+def multi_asset_cmd(
+    base_output_subdir: str = typer.Option(
+        "multi_asset", help="Root folder under analysis_outputs to store results."
+    ),
+    bitcoin_symbol: str = typer.Option(
+        "BTC-USD", help="Yahoo Finance ticker for the Bitcoin pair."
+    ),
+    bitcoin_start: str = typer.Option(
+        "2020-01-01", help="Start date for the Bitcoin run (YYYY-MM-DD)."
+    ),
+    bitcoin_end: Optional[str] = typer.Option(
+        None, help="Optional end date for the Bitcoin run (YYYY-MM-DD)."
+    ),
+    forex_symbol: str = typer.Option(
+        "EURUSD=X", help="Yahoo Finance ticker for the FX pair."
+    ),
+    forex_label: str = typer.Option(
+        "EUR/USD", help="Display label for the FX pair."
+    ),
+    forex_start: str = typer.Option(
+        "2020-01-01", help="Start date for the FX run (YYYY-MM-DD)."
+    ),
+    forex_end: Optional[str] = typer.Option(
+        None, help="Optional end date for the FX run (YYYY-MM-DD)."
+    ),
+    apple_start: str = typer.Option(
+        "2020-01-01", help="Start date for the Apple run (YYYY-MM-DD)."
+    ),
+    apple_end: Optional[str] = typer.Option(
+        None, help="Optional end date for the Apple run (YYYY-MM-DD)."
+    ),
+    bond_symbol: str = typer.Option(
+        "TLT", help="Yahoo Finance ticker used as the long-term bond proxy."
+    ),
+    bond_label: str = typer.Option(
+        "iShares 20+ Year Treasury Bond ETF",
+        help="Display label for the long-term bond instrument.",
+    ),
+    bond_start: str = typer.Option(
+        "2020-01-01", help="Start date for the bond run (YYYY-MM-DD)."
+    ),
+    bond_end: Optional[str] = typer.Option(
+        None, help="Optional end date for the bond run (YYYY-MM-DD)."
+    ),
+    show_summary: bool = typer.Option(
+        False,
+        help="Print the combined JSON summary after finishing the runs.",
+    ),
+) -> None:
+    """Execute the four-asset bundle analysis and save figures."""
+
+    _ensure_experiments_on_path()
+    from examples import asset_analysis
+
+    overrides = {
+        "bitcoin": {
+            "symbol": bitcoin_symbol,
+            "start": bitcoin_start,
+            "end": bitcoin_end,
+        },
+        "forex": {
+            "symbol": forex_symbol,
+            "label": forex_label,
+            "start": forex_start,
+            "end": forex_end,
+        },
+        "apple": {
+            "start": apple_start,
+            "end": apple_end,
+        },
+        "bond": {
+            "symbol": bond_symbol,
+            "label": bond_label,
+            "start": bond_start,
+            "end": bond_end,
+        },
+    }
+
+    overrides = {
+        key: {k: v for k, v in value.items() if v is not None}
+        for key, value in overrides.items()
+    }
+
+    results, master_path = asset_analysis.run_default_assets(
+        base_output_subdir=base_output_subdir,
+        overrides=overrides,
+    )
+
+    if master_path:
+        typer.echo(f"Summary written to {master_path}")
+
+    for summary in results.values():
+        raw_label = summary.get("label") or summary.get("key") or "asset"
+        label = str(raw_label).strip()
+        summary_path = summary.get("summary_path")
+        typer.echo(f"{label} summary: {summary_path}")
+        outputs = summary.get("outputs", {})
+        if outputs:
+            typer.echo(f"{label} figures:")
+            for name, path in outputs.items():
+                typer.echo(f"  {name}: {path}")
+
+    if show_summary:
+        typer.echo(json.dumps(results, indent=2))
+
+
 app.add_typer(examples_app, name="examples")
 
 
