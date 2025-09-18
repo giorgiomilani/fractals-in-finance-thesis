@@ -28,20 +28,36 @@ def train(
     crit  = nn.CrossEntropyLoss()
 
     model.train()
+    history = []
     for epoch in range(epochs):
-        loss_epoch = 0
-        for x, _ in dl:
-            y_fake = torch.randint(0, 3, (x.size(0),))   # placeholder labels
+        loss_epoch = 0.0
+        correct = 0
+        total = 0
+        for x, y in dl:
+            y = y.long()
             pred = model(x)
-            loss = crit(pred, y_fake)
-            optim.zero_grad(); loss.backward(); optim.step()
-            loss_epoch += loss.item()
-        rich.print(f"[cyan]{epoch=} loss={loss_epoch/len(dl):.4f}")
+            loss = crit(pred, y)
+            optim.zero_grad()
+            loss.backward()
+            optim.step()
+            batch = x.size(0)
+            loss_epoch += loss.item() * batch
+            correct += (pred.argmax(dim=1) == y).sum().item()
+            total += batch
+        avg_loss = loss_epoch / total if total else 0.0
+        acc = correct / total if total else 0.0
+        history.append({"epoch": epoch, "loss": avg_loss, "accuracy": acc})
+        rich.print(f"[cyan]{epoch=} loss={avg_loss:.4f} acc={acc:.3f}")
 
     pathlib.Path(outdir).mkdir(parents=True, exist_ok=True)
     torch.save(model.state_dict(), f"{outdir}/cnn.pth")
-    json.dump({"epochs": epochs, "loss": loss_epoch/len(dl)},
-              open(f"{outdir}/metrics.json", "w"))
+    metrics = {
+        "epochs": epochs,
+        "history": history,
+        "final_loss": history[-1]["loss"] if history else None,
+        "final_accuracy": history[-1]["accuracy"] if history else None,
+    }
+    json.dump(metrics, open(f"{outdir}/metrics.json", "w"))
 
 if __name__ == "__main__":
     app()

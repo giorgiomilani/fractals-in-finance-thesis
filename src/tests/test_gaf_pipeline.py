@@ -46,7 +46,25 @@ def test_top_saliency_pairs_indices():
     assert pairs[0][2] >= pairs[1][2]
 
 @pytest.mark.skipif(torch is None, reason="torch not installed")
-def test_dataset_len_stride():
+def test_dataset_len_stride_and_labels():
     series = np.arange(300)
     ds = GAFWindowDataset(series, win=100, stride=50)
-    assert len(ds) == 4
+    assert len(ds) == 5
+    labels = [int(ds[i][1]) for i in range(len(ds))]
+    assert len(labels) == len(ds)
+    assert all(0 <= label <= 2 for label in labels)
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_dataset_default_regime_labels():
+    neg = np.full(150, -0.02)
+    flat = np.zeros(150)
+    pos = np.full(150, 0.03)
+    series = np.concatenate([neg, flat, pos])
+    ds = GAFWindowDataset(series, win=30, stride=30)
+    labels = np.array([int(ds[i][1]) for i in range(len(ds))])
+    assert labels.min() == 0
+    assert labels.max() == 2
+    # early windows dominated by negative returns, late ones positive
+    assert np.all(labels[:2] == 0)
+    assert np.all(labels[-2:] == 2)

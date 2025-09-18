@@ -11,7 +11,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Iterable, Sequence, Union
 
-
 import matplotlib
 
 matplotlib.use("Agg")
