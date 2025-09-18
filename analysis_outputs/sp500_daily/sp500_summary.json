@@ -1,0 +1,59 @@
+{
+  "symbol": "^GSPC",
+  "observations": 929,
+  "span": "2022-01-03 \u2192 2025-09-17",
+  "price_change": 0.3760590958995169,
+  "annualised_return": 0.0865924315607766,
+  "annualised_volatility": 0.18171234166431197,
+  "skew": 0.07228125630886897,
+  "excess_kurtosis": 6.336150925813438,
+  "garch": {
+    "params": {
+      "Const": 0.08251100369921847,
+      "ret_pct[1]": -0.008226663979886313,
+      "omega": 0.025418772378382696,
+      "alpha[1]": 0.10666306735019222,
+      "beta[1]": 0.8740216509589582
+    },
+    "last_cond_vol_daily": 0.00624172335672532,
+    "last_cond_vol_annual": 0.09908428652615095,
+    "forecast_daily_vol": [
+      0.00607791203843328,
+      0.006226705868514465,
+      0.006369067898543098,
+      0.006505655253157063,
+      0.006636874886262478
+    ],
+    "forecast_annual_vol": [
+      0.09648386246532066,
+      0.09884589129141436,
+      0.1011058184569788,
+      0.10327407549224725,
+      0.10535712259020365
+    ]
+  },
+  "msm": {
+    "sigma2": 0.00013088822297820855,
+    "m_L": 0.7142857142857143,
+    "m_H": 1.4,
+    "gamma_1": 0.01,
+    "b": 2.0,
+    "K": 5
+  },
+  "fractal": {
+    "RS_H": 0.5658258583236989,
+    "DFA_H": 0.44298009159143326,
+    "Structure_H": 0.49471393570402483,
+    "Structure_lambda": 0.280534445294383,
+    "Structure_delta_alpha": 0.22792086937578648,
+    "MFDFA_h2": 0.45062558680579295,
+    "MFDFA_width": 0.41079207915968263,
+    "WTMM_width": 0.9016795795417542
+  },
+  "outputs": {
+    "price_path": "analysis_outputs/sp500_daily/sp500_price.png",
+    "returns": "analysis_outputs/sp500_daily/sp500_returns.png",
+    "garch": "analysis_outputs/sp500_daily/sp500_garch.png",
+    "mfdfa": "analysis_outputs/sp500_daily/sp500_mfdfa.png"
+  }
+}

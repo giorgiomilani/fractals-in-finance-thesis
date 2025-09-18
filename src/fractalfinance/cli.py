@@ -8,14 +8,16 @@ Examples
     python -m fractalfinance.cli --help
     python -m fractalfinance.cli run
     python -m fractalfinance.cli run model=msm dataset=btc_minute
+    python -m fractalfinance.cli examples sp500-daily --start 2022-01-01
 """
 
 from __future__ import annotations
 
 import importlib
+import json
 import sys
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 import typer
 
@@ -107,6 +109,42 @@ def mmar_cmd(path: Path = DEFAULT_OUTPUT_DIR / "mmar.png") -> None:
 
 
 app.add_typer(plot_app, name="plot")
+
+
+examples_app = typer.Typer(help="Run built-in analysis workflows.")
+
+
+@examples_app.command("sp500-daily")
+def sp500_daily_cmd(
+    symbol: str = typer.Option("^GSPC", help="Yahoo Finance ticker symbol."),
+    start: str = typer.Option("2022-01-01", help="Start date (YYYY-MM-DD)."),
+    end: Optional[str] = typer.Option(None, help="End date (defaults to today)."),
+    output_subdir: str = typer.Option("sp500_daily", help="Folder under analysis_outputs to store results."),
+    show_summary: bool = typer.Option(False, help="Print the JSON summary after the run."),
+) -> None:
+    """Download S&P 500 data, run the full analysis, and save figures."""
+
+    _ensure_experiments_on_path()
+    from examples import sp500_daily_analysis
+
+    summary = sp500_daily_analysis.run(
+        symbol=symbol,
+        start=start,
+        end=end,
+        output_subdir=output_subdir,
+    )
+    summary_path = DEFAULT_OUTPUT_DIR / output_subdir / "sp500_summary.json"
+    typer.echo(f"Summary written to {summary_path}")
+    outputs = summary.get("outputs", {})
+    if outputs:
+        typer.echo("Generated figures:")
+        for name, path in outputs.items():
+            typer.echo(f"  {name}: {path}")
+    if show_summary:
+        typer.echo(json.dumps(summary, indent=2))
+
+
+app.add_typer(examples_app, name="examples")
 
 
 # ──────────────────────────────────────────────────────────────────────────────
