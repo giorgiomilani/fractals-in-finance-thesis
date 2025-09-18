@@ -1,80 +1,61 @@
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-import numpy as np
+"""Thin wrappers around :mod:`fractalfinance.plotting` for example scripts."""
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Union
+
 import typer
 
-from fractalfinance.gaf.gaf import gaf_encode
-from fractalfinance.models.fbm import fbm
-from fractalfinance.models.mmar import simulate
-
-
-def plot_fbm(path: str = "fbm.png", H: float = 0.7, n: int = 1024) -> str:
-    """Generate and save a sample Fractional Brownian Motion path."""
-    series = fbm(H=H, n=n, seed=0)
-    plt.figure(figsize=(8, 4))
-    plt.plot(series, lw=1)
-    plt.title("Fractional Brownian Motion")
-    plt.tight_layout()
-    plt.savefig(path)
-    plt.close()
-    return path
-
-
-def plot_gaf(path: str = "gaf.png", H: float = 0.7, n: int = 256) -> str:
-    """Generate a series and visualise its GASF and GADF."""
-    series = fbm(H=H, n=n, seed=0)
-    gasf = gaf_encode(series, kind="gasf", resize=n)
-    gadf = gaf_encode(series, kind="gadf", resize=n)
-    fig, axes = plt.subplots(1, 3, figsize=(12, 4))
-    axes[0].plot(series, lw=1)
-    axes[0].set_title("Series")
-    axes[1].imshow(gasf, cmap="jet")
-    axes[1].set_title("GASF")
-    axes[1].axis("off")
-    axes[2].imshow(gadf, cmap="jet")
-    axes[2].set_title("GADF")
-    axes[2].axis("off")
-    fig.tight_layout()
-    fig.savefig(path)
-    plt.close(fig)
-    return path
-
-
-def plot_mmar(path: str = "mmar.png", H: float = 0.7, n: int = 1024) -> str:
-    """Simulate a Multifractal Multivariate AR path and its multipliers."""
-    theta, X, r = simulate(n=n, H=H, seed=0)
-    fig, axes = plt.subplots(3, 1, figsize=(8, 6), sharex=True)
-    axes[0].plot(theta, lw=1)
-    axes[0].set_title("Multipliers")
-    axes[1].plot(r, lw=1)
-    axes[1].set_title("Returns")
-    axes[2].plot(X, lw=1)
-    axes[2].set_title("MMAR path")
-    fig.tight_layout()
-    fig.savefig(path)
-    plt.close(fig)
-    return path
-
+from fractalfinance.plotting import DEFAULT_OUTPUT_DIR, plot_fbm as _plot_fbm
+from fractalfinance.plotting import plot_gaf as _plot_gaf
+from fractalfinance.plotting import plot_mmar as _plot_mmar
 
 app = typer.Typer(help="Generate example plots for fractal processes.")
 
 
+def plot_fbm(
+    path: Union[str, Path] = DEFAULT_OUTPUT_DIR / "fbm.png", H: float = 0.7, n: int = 1024
+) -> str:
+    """Create an FBM plot and save it to *path*."""
+
+    return _plot_fbm(path=path, H=H, n=n)
+
+
+def plot_gaf(
+    path: Union[str, Path] = DEFAULT_OUTPUT_DIR / "gaf.png", H: float = 0.7, n: int = 256
+) -> str:
+    """Create GASF/GADF plots and save them to *path*."""
+
+    return _plot_gaf(path=path, H=H, n=n)
+
+
+def plot_mmar(
+    path: Union[str, Path] = DEFAULT_OUTPUT_DIR / "mmar.png", H: float = 0.7, n: int = 1024
+) -> str:
+    """Create an MMAR plot and save it to *path*."""
+
+    return _plot_mmar(path=path, H=H, n=n)
+
+
 @app.command()
-def fbm_cmd(path: str = "fbm.png"):
+def fbm_cmd(path: Path = DEFAULT_OUTPUT_DIR / "fbm.png") -> None:
     """Create an FBM plot and save it to PATH."""
+
     typer.echo(plot_fbm(path))
 
 
 @app.command()
-def gaf_cmd(path: str = "gaf.png"):
+def gaf_cmd(path: Path = DEFAULT_OUTPUT_DIR / "gaf.png") -> None:
     """Create GASF/GADF plots and save them to PATH."""
+
     typer.echo(plot_gaf(path))
 
 
 @app.command()
-def mmar_cmd(path: str = "mmar.png"):
+def mmar_cmd(path: Path = DEFAULT_OUTPUT_DIR / "mmar.png") -> None:
     """Create an MMAR plot and save it to PATH."""
+
     typer.echo(plot_mmar(path))
 
 
