@@ -1,0 +1,262 @@
+{
+  "bitcoin": {
+    "key": "bitcoin",
+    "label": "Bitcoin / US Dollar",
+    "symbol": "BTC-USD",
+    "asset_type": "crypto",
+    "observations": 2087,
+    "span": "2020-01-01 \u2192 2025-09-18",
+    "price_change": 15.305183583540899,
+    "annualised_return": 0.48820858649213295,
+    "annualised_volatility": 0.6269676550371603,
+    "annualisation_days": 365.0,
+    "skew": -1.364458604023631,
+    "excess_kurtosis": 22.04206484421268,
+    "garch": {
+      "params": {
+        "Const": 0.20470664423084342,
+        "ret_pct[1]": -0.05695488303718962,
+        "omega": 0.38207181222849484,
+        "alpha[1]": 0.11848586544071418,
+        "beta[1]": 0.8608934287136699
+      },
+      "last_cond_vol_daily": 0.01877620410783133,
+      "last_cond_vol_annual": 0.35871887579985784,
+      "forecast_daily_vol": [
+        0.01859063893185013,
+        0.0194374224815508,
+        0.020207854179809893,
+        0.02093485818177991,
+        0.021623191461110594
+      ],
+      "forecast_annual_vol": [
+        0.35517365809060775,
+        0.37135143509228313,
+        0.3860705120203406,
+        0.39995990397576303,
+        0.4131104928125208
+      ]
+    },
+    "msm": {
+      "sigma2": 0.0010764386013946638,
+      "m_L": 0.5555555555555556,
+      "m_H": 1.8,
+      "gamma_1": 0.01,
+      "b": 2.0,
+      "K": 5
+    },
+    "fractal": {
+      "RS_H": 0.566836707001831,
+      "DFA_H": 0.5205760673215695,
+      "Structure_H": 0.6014927520248465,
+      "Structure_lambda": 0.2860772156918439,
+      "Structure_delta_alpha": 0.25402789734090436,
+      "MFDFA_h2": 0.5255311621034553,
+      "MFDFA_width": 0.8050145445451893,
+      "WTMM_width": 0.14541851138680792
+    },
+    "outputs": {
+      "price_path": "analysis_outputs/multi_asset/bitcoin_daily/bitcoin_price.png",
+      "returns": "analysis_outputs/multi_asset/bitcoin_daily/bitcoin_returns.png",
+      "garch": "analysis_outputs/multi_asset/bitcoin_daily/bitcoin_garch.png",
+      "mfdfa": "analysis_outputs/multi_asset/bitcoin_daily/bitcoin_mfdfa.png"
+    },
+    "notes": "Crypto trades 24/7 so a 365-day scaling factor is used for annualised metrics.",
+    "summary_path": "analysis_outputs/multi_asset/bitcoin_daily/bitcoin_summary.json"
+  },
+  "forex": {
+    "key": "forex",
+    "label": "EUR/USD",
+    "symbol": "EURUSD=X",
+    "asset_type": "forex",
+    "observations": 1488,
+    "span": "2020-01-01 \u2192 2025-09-18",
+    "price_change": 0.04773098844743018,
+    "annualised_return": 0.008147166840875165,
+    "annualised_volatility": 0.07738344729038321,
+    "annualisation_days": 260.0,
+    "skew": 0.02551662311864706,
+    "excess_kurtosis": 2.2861647180659217,
+    "garch": {
+      "params": {
+        "Const": -0.0044162159786801155,
+        "ret_pct[1]": -0.011233028993815208,
+        "omega": 0.003895746325893676,
+        "alpha[1]": 0.04384382042970667,
+        "beta[1]": 0.939931688187658
+      },
+      "last_cond_vol_daily": 0.004723469623699726,
+      "last_cond_vol_annual": 0.0761636591450519,
+      "forecast_daily_vol": [
+        0.005038954622036701,
+        0.0050370512296290144,
+        0.005034864779977189,
+        0.005032712837911094,
+        0.005030594911749159
+      ],
+      "forecast_annual_vol": [
+        0.08125070188968035,
+        0.08122001060930652,
+        0.08118475516801311,
+        0.0811500561448206,
+        0.08111590561160183
+      ]
+    },
+    "msm": {
+      "sigma2": 2.3016052261492478e-05,
+      "m_L": 0.7142857142857143,
+      "m_H": 1.4,
+      "gamma_1": 0.01,
+      "b": 2.0,
+      "K": 5
+    },
+    "fractal": {
+      "RS_H": 0.5306920002360669,
+      "DFA_H": 0.4868649766903405,
+      "Structure_H": 0.5231894029804276,
+      "Structure_lambda": 0.20108429289252278,
+      "Structure_delta_alpha": 0.1260098729080419,
+      "MFDFA_h2": 0.4903557090496596,
+      "MFDFA_width": 0.2472809256863815,
+      "WTMM_width": 0.15816855113166506
+    },
+    "outputs": {
+      "price_path": "analysis_outputs/multi_asset/fx_eurusd_daily/forex_price.png",
+      "returns": "analysis_outputs/multi_asset/fx_eurusd_daily/forex_returns.png",
+      "garch": "analysis_outputs/multi_asset/fx_eurusd_daily/forex_garch.png",
+      "mfdfa": "analysis_outputs/multi_asset/fx_eurusd_daily/forex_mfdfa.png"
+    },
+    "notes": "Major FX pairs observe a 5-day trading week; 260 trading days approximate the annualisation horizon.",
+    "summary_path": "analysis_outputs/multi_asset/fx_eurusd_daily/forex_summary.json"
+  },
+  "apple": {
+    "key": "apple",
+    "label": "Apple Inc.",
+    "symbol": "AAPL",
+    "asset_type": "equity",
+    "observations": 1435,
+    "span": "2020-01-02 \u2192 2025-09-18",
+    "price_change": 2.1679039824651194,
+    "annualised_return": 0.20249037042630352,
+    "annualised_volatility": 0.3223440174894246,
+    "annualisation_days": 252.0,
+    "skew": 0.027526918095229277,
+    "excess_kurtosis": 6.306305039629554,
+    "garch": {
+      "params": {
+        "Const": 0.13197568528010345,
+        "ret_pct[1]": -0.005630887690775328,
+        "omega": 0.15450362895249475,
+        "alpha[1]": 0.10145584970080536,
+        "beta[1]": 0.8588432382773056
+      },
+      "last_cond_vol_daily": 0.016153650634058426,
+      "last_cond_vol_annual": 0.2564312540612366,
+      "forecast_daily_vol": [
+        0.015595079504980071,
+        0.015780020878833,
+        0.015955376060053296,
+        0.016121974352830894,
+        0.016280353986077554
+      ],
+      "forecast_annual_vol": [
+        0.2475642122787453,
+        0.2505000655727942,
+        0.2532837427764876,
+        0.25592840868571226,
+        0.25844260741956193
+      ]
+    },
+    "msm": {
+      "sigma2": 0.00041203673603919304,
+      "m_L": 0.625,
+      "m_H": 1.5999999999999999,
+      "gamma_1": 0.01,
+      "b": 2.0,
+      "K": 5
+    },
+    "fractal": {
+      "RS_H": 0.5849564210637698,
+      "DFA_H": 0.4688610702904469,
+      "Structure_H": 0.4985778195981259,
+      "Structure_lambda": 0.2038070377552678,
+      "Structure_delta_alpha": 0.1204509204455021,
+      "MFDFA_h2": 0.4706573303077803,
+      "MFDFA_width": 0.5065599032089272,
+      "WTMM_width": 0.07906576715654037
+    },
+    "outputs": {
+      "price_path": "analysis_outputs/multi_asset/apple_daily/apple_price.png",
+      "returns": "analysis_outputs/multi_asset/apple_daily/apple_returns.png",
+      "garch": "analysis_outputs/multi_asset/apple_daily/apple_garch.png",
+      "mfdfa": "analysis_outputs/multi_asset/apple_daily/apple_mfdfa.png"
+    },
+    "notes": null,
+    "summary_path": "analysis_outputs/multi_asset/apple_daily/apple_summary.json"
+  },
+  "bond": {
+    "key": "bond",
+    "label": "iShares 20+ Year Treasury Bond ETF",
+    "symbol": "TLT",
+    "asset_type": "bond",
+    "observations": 1435,
+    "span": "2020-01-02 \u2192 2025-09-18",
+    "price_change": -0.35077731176900284,
+    "annualised_return": -0.07585981392621073,
+    "annualised_volatility": 0.1742021362182003,
+    "annualisation_days": 252.0,
+    "skew": 0.07820692327161118,
+    "excess_kurtosis": 4.093438182998656,
+    "garch": {
+      "params": {
+        "Const": -0.03740438467459032,
+        "ret_pct[1]": -0.01393366675329879,
+        "omega": 0.06704098211100958,
+        "alpha[1]": 0.10799393526479195,
+        "beta[1]": 0.8319190245315892
+      },
+      "last_cond_vol_daily": 0.008150416248519008,
+      "last_cond_vol_annual": 0.12938384685144785,
+      "forecast_daily_vol": [
+        0.008914399448714657,
+        0.009022811984081308,
+        0.009122761899757758,
+        0.009215717755122858,
+        0.009302241358161057
+      ],
+      "forecast_annual_vol": [
+        0.14151170417274161,
+        0.14323269981823453,
+        0.1448193555408851,
+        0.14629498399810517,
+        0.14766850361516326
+      ]
+    },
+    "msm": {
+      "sigma2": 0.00012033824189237223,
+      "m_L": 0.7142857142857143,
+      "m_H": 1.4,
+      "gamma_1": 0.01,
+      "b": 2.0,
+      "K": 5
+    },
+    "fractal": {
+      "RS_H": 0.5471955990473162,
+      "DFA_H": 0.386452856633831,
+      "Structure_H": 0.5112172805019614,
+      "Structure_lambda": 0.2200415080037011,
+      "Structure_delta_alpha": 0.17178136553049622,
+      "MFDFA_h2": 0.5254915391257916,
+      "MFDFA_width": 0.9183722780761119,
+      "WTMM_width": 0.15800435526589557
+    },
+    "outputs": {
+      "price_path": "analysis_outputs/multi_asset/bond_tlt_daily/bond_price.png",
+      "returns": "analysis_outputs/multi_asset/bond_tlt_daily/bond_returns.png",
+      "garch": "analysis_outputs/multi_asset/bond_tlt_daily/bond_garch.png",
+      "mfdfa": "analysis_outputs/multi_asset/bond_tlt_daily/bond_mfdfa.png"
+    },
+    "notes": "TLT serves as a liquid proxy for long-duration US Treasury exposure.",
+    "summary_path": "analysis_outputs/multi_asset/bond_tlt_daily/bond_summary.json"
+  }
+}

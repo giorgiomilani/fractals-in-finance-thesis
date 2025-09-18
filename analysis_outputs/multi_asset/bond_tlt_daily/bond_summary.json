@@ -1,0 +1,64 @@
+{
+  "key": "bond",
+  "label": "iShares 20+ Year Treasury Bond ETF",
+  "symbol": "TLT",
+  "asset_type": "bond",
+  "observations": 1435,
+  "span": "2020-01-02 \u2192 2025-09-18",
+  "price_change": -0.35077731176900284,
+  "annualised_return": -0.07585981392621073,
+  "annualised_volatility": 0.1742021362182003,
+  "annualisation_days": 252.0,
+  "skew": 0.07820692327161118,
+  "excess_kurtosis": 4.093438182998656,
+  "garch": {
+    "params": {
+      "Const": -0.03740438467459032,
+      "ret_pct[1]": -0.01393366675329879,
+      "omega": 0.06704098211100958,
+      "alpha[1]": 0.10799393526479195,
+      "beta[1]": 0.8319190245315892
+    },
+    "last_cond_vol_daily": 0.008150416248519008,
+    "last_cond_vol_annual": 0.12938384685144785,
+    "forecast_daily_vol": [
+      0.008914399448714657,
+      0.009022811984081308,
+      0.009122761899757758,
+      0.009215717755122858,
+      0.009302241358161057
+    ],
+    "forecast_annual_vol": [
+      0.14151170417274161,
+      0.14323269981823453,
+      0.1448193555408851,
+      0.14629498399810517,
+      0.14766850361516326
+    ]
+  },
+  "msm": {
+    "sigma2": 0.00012033824189237223,
+    "m_L": 0.7142857142857143,
+    "m_H": 1.4,
+    "gamma_1": 0.01,
+    "b": 2.0,
+    "K": 5
+  },
+  "fractal": {
+    "RS_H": 0.5471955990473162,
+    "DFA_H": 0.386452856633831,
+    "Structure_H": 0.5112172805019614,
+    "Structure_lambda": 0.2200415080037011,
+    "Structure_delta_alpha": 0.17178136553049622,
+    "MFDFA_h2": 0.5254915391257916,
+    "MFDFA_width": 0.9183722780761119,
+    "WTMM_width": 0.15800435526589557
+  },
+  "outputs": {
+    "price_path": "analysis_outputs/multi_asset/bond_tlt_daily/bond_price.png",
+    "returns": "analysis_outputs/multi_asset/bond_tlt_daily/bond_returns.png",
+    "garch": "analysis_outputs/multi_asset/bond_tlt_daily/bond_garch.png",
+    "mfdfa": "analysis_outputs/multi_asset/bond_tlt_daily/bond_mfdfa.png"
+  },
+  "notes": "TLT serves as a liquid proxy for long-duration US Treasury exposure."
+}

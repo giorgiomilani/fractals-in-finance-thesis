@@ -257,7 +257,11 @@ def load_yahoo(
     meta = result.get("meta", {}) if isinstance(result, dict) else {}
     if isinstance(meta, dict):
         tz_name = meta.get("timezone")
-        tz_aliases = {"EDT": "America/New_York", "EST": "America/New_York"}
+        tz_aliases = {
+            "EDT": "America/New_York",
+            "EST": "America/New_York",
+            "BST": "Europe/London",
+        }
         if tz_name in tz_aliases:
             tz_name = tz_aliases[tz_name]
 

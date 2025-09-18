@@ -1,0 +1,64 @@
+{
+  "key": "forex",
+  "label": "EUR/USD",
+  "symbol": "EURUSD=X",
+  "asset_type": "forex",
+  "observations": 1488,
+  "span": "2020-01-01 \u2192 2025-09-18",
+  "price_change": 0.04773098844743018,
+  "annualised_return": 0.008147166840875165,
+  "annualised_volatility": 0.07738344729038321,
+  "annualisation_days": 260.0,
+  "skew": 0.02551662311864706,
+  "excess_kurtosis": 2.2861647180659217,
+  "garch": {
+    "params": {
+      "Const": -0.0044162159786801155,
+      "ret_pct[1]": -0.011233028993815208,
+      "omega": 0.003895746325893676,
+      "alpha[1]": 0.04384382042970667,
+      "beta[1]": 0.939931688187658
+    },
+    "last_cond_vol_daily": 0.004723469623699726,
+    "last_cond_vol_annual": 0.0761636591450519,
+    "forecast_daily_vol": [
+      0.005038954622036701,
+      0.0050370512296290144,
+      0.005034864779977189,
+      0.005032712837911094,
+      0.005030594911749159
+    ],
+    "forecast_annual_vol": [
+      0.08125070188968035,
+      0.08122001060930652,
+      0.08118475516801311,
+      0.0811500561448206,
+      0.08111590561160183
+    ]
+  },
+  "msm": {
+    "sigma2": 2.3016052261492478e-05,
+    "m_L": 0.7142857142857143,
+    "m_H": 1.4,
+    "gamma_1": 0.01,
+    "b": 2.0,
+    "K": 5
+  },
+  "fractal": {
+    "RS_H": 0.5306920002360669,
+    "DFA_H": 0.4868649766903405,
+    "Structure_H": 0.5231894029804276,
+    "Structure_lambda": 0.20108429289252278,
+    "Structure_delta_alpha": 0.1260098729080419,
+    "MFDFA_h2": 0.4903557090496596,
+    "MFDFA_width": 0.2472809256863815,
+    "WTMM_width": 0.15816855113166506
+  },
+  "outputs": {
+    "price_path": "analysis_outputs/multi_asset/fx_eurusd_daily/forex_price.png",
+    "returns": "analysis_outputs/multi_asset/fx_eurusd_daily/forex_returns.png",
+    "garch": "analysis_outputs/multi_asset/fx_eurusd_daily/forex_garch.png",
+    "mfdfa": "analysis_outputs/multi_asset/fx_eurusd_daily/forex_mfdfa.png"
+  },
+  "notes": "Major FX pairs observe a 5-day trading week; 260 trading days approximate the annualisation horizon."
+}

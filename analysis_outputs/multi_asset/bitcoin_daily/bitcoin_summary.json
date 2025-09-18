@@ -1,0 +1,64 @@
+{
+  "key": "bitcoin",
+  "label": "Bitcoin / US Dollar",
+  "symbol": "BTC-USD",
+  "asset_type": "crypto",
+  "observations": 2087,
+  "span": "2020-01-01 \u2192 2025-09-18",
+  "price_change": 15.305183583540899,
+  "annualised_return": 0.48820858649213295,
+  "annualised_volatility": 0.6269676550371603,
+  "annualisation_days": 365.0,
+  "skew": -1.364458604023631,
+  "excess_kurtosis": 22.04206484421268,
+  "garch": {
+    "params": {
+      "Const": 0.20470664423084342,
+      "ret_pct[1]": -0.05695488303718962,
+      "omega": 0.38207181222849484,
+      "alpha[1]": 0.11848586544071418,
+      "beta[1]": 0.8608934287136699
+    },
+    "last_cond_vol_daily": 0.01877620410783133,
+    "last_cond_vol_annual": 0.35871887579985784,
+    "forecast_daily_vol": [
+      0.01859063893185013,
+      0.0194374224815508,
+      0.020207854179809893,
+      0.02093485818177991,
+      0.021623191461110594
+    ],
+    "forecast_annual_vol": [
+      0.35517365809060775,
+      0.37135143509228313,
+      0.3860705120203406,
+      0.39995990397576303,
+      0.4131104928125208
+    ]
+  },
+  "msm": {
+    "sigma2": 0.0010764386013946638,
+    "m_L": 0.5555555555555556,
+    "m_H": 1.8,
+    "gamma_1": 0.01,
+    "b": 2.0,
+    "K": 5
+  },
+  "fractal": {
+    "RS_H": 0.566836707001831,
+    "DFA_H": 0.5205760673215695,
+    "Structure_H": 0.6014927520248465,
+    "Structure_lambda": 0.2860772156918439,
+    "Structure_delta_alpha": 0.25402789734090436,
+    "MFDFA_h2": 0.5255311621034553,
+    "MFDFA_width": 0.8050145445451893,
+    "WTMM_width": 0.14541851138680792
+  },
+  "outputs": {
+    "price_path": "analysis_outputs/multi_asset/bitcoin_daily/bitcoin_price.png",
+    "returns": "analysis_outputs/multi_asset/bitcoin_daily/bitcoin_returns.png",
+    "garch": "analysis_outputs/multi_asset/bitcoin_daily/bitcoin_garch.png",
+    "mfdfa": "analysis_outputs/multi_asset/bitcoin_daily/bitcoin_mfdfa.png"
+  },
+  "notes": "Crypto trades 24/7 so a 365-day scaling factor is used for annualised metrics."
+}
