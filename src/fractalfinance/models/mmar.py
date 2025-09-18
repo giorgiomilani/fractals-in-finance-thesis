@@ -202,11 +202,12 @@ def calibrate(
     best_params: CascadeParams | None = None
     best_error = float("inf")
 
+    n_trials = int(max(n_trials, 1))
     if seed is None:
-        trial_seeds: Sequence[int | None] = [None] * int(max(n_trials, 1))
+        trial_seeds: Sequence[int | None] = list(range(n_trials))
     else:
         base = np.random.SeedSequence(seed)
-        trial_seeds = [int(s.generate_state(1)[0]) for s in base.spawn(int(max(n_trials, 1)))]
+        trial_seeds = [int(s.generate_state(1)[0]) for s in base.spawn(n_trials)]
 
     for mL in grid_mL:
         if mL <= 0:
