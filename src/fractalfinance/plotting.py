@@ -11,6 +11,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Iterable, Sequence, Union
 
+
 import matplotlib
 
 matplotlib.use("Agg")
@@ -70,6 +71,7 @@ def plot_fbm(
     data = _coerce_series(series, name="series")
     if data is None:
         data = fbm(H=H, n=n, seed=0)
+
     plt.figure(figsize=(8, 4))
     plt.plot(data, lw=1)
     plt.title(title)
@@ -96,6 +98,7 @@ def plot_gaf(
         n = len(data)
     gasf = gaf_encode(data, kind="gasf", resize=n)
     gadf = gaf_encode(data, kind="gadf", resize=n)
+
     fig, axes = plt.subplots(1, 3, figsize=(12, 4))
     axes[0].plot(data, lw=1)
     axes[0].set_title("Series")
@@ -154,6 +157,7 @@ def plot_mmar(
     ret_ax.set_title("Returns")
     lvl_ax.plot(lvl_arr, lw=1)
     lvl_ax.set_title("Price path" if mult_arr is None else "MMAR path")
+
     fig.tight_layout()
     save_path = _prepare_path(path)
     fig.savefig(save_path)
