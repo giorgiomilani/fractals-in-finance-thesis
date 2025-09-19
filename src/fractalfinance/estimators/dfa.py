@@ -117,8 +117,21 @@ class DFA(BaseEstimator):
             if self.auto_range
             else slice(0, len(log_s))
         )
-        H, _ = np.polyfit(log_s[sl], log_F[sl], 1)
-        result = {"H": float(H), "scales": scales[mask][sl]}
+        slope, intercept = np.polyfit(log_s[sl], log_F[sl], 1)
+        fit_start = int(sl.start or 0)
+        fit_stop = int(sl.stop or len(log_s))
+        fluct = np.sqrt(F2[mask])
+        result = {
+            "H": float(slope),
+            "intercept": float(intercept),
+            "scales": scales[mask],
+            "fluctuation": fluct,
+            "log_scales": log_s,
+            "log_fluct": log_F,
+            "fit_start": fit_start,
+            "fit_stop": fit_stop,
+            "fit_scales": scales[mask][sl],
+        }
 
         if self.n_boot > 0:
             boot = []

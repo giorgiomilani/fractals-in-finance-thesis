@@ -79,8 +79,16 @@ class RS(BaseEstimator):
         RS_arr = np.asarray(RS_vals, dtype=float)
         if logn_arr.size < 2:
             raise RuntimeError("RS: not enough valid window sizes for regression.")
-        H, _ = np.polyfit(logn_arr, np.log(RS_arr), 1)
-        result = {"H": float(H)}
+        slope, intercept = np.polyfit(logn_arr, np.log(RS_arr), 1)
+        H = float(slope)
+        result = {
+            "H": H,
+            "intercept": float(intercept),
+            "log_scales": logn_arr,
+            "log_rs": np.log(RS_arr),
+            "scales": np.exp(logn_arr),
+            "rs": RS_arr,
+        }
 
         if n_surrogates > 0:
             n_surrogates = int(n_surrogates)
