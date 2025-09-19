@@ -20,10 +20,14 @@ from fractalfinance.analysis.common import (
     ensure_dir,
     fit_garch,
     fit_msm,
+    plot_dfa_fluctuation,
     plot_garch_overlay,
     plot_mfdfa_spectrum,
     plot_price_series,
+    plot_rs_scaling,
     plot_returns_histogram,
+    plot_structure_function_summary,
+    plot_wtmm_spectrum,
     summarise_prices,
 )
 from fractalfinance.io import load_yahoo
@@ -75,12 +79,36 @@ def run(
         out_dir=output_dir,
         filename="sp500_mfdfa.png",
     )
+    rs_plot = plot_rs_scaling(
+        fractal.rs,
+        out_dir=output_dir,
+        filename="sp500_rs.png",
+    )
+    dfa_plot = plot_dfa_fluctuation(
+        fractal.dfa,
+        out_dir=output_dir,
+        filename="sp500_dfa.png",
+    )
+    structure_plot = plot_structure_function_summary(
+        fractal.structure,
+        out_dir=output_dir,
+        filename="sp500_structure.png",
+    )
+    wtmm_plot = plot_wtmm_spectrum(
+        fractal.wtmm,
+        out_dir=output_dir,
+        filename="sp500_wtmm.png",
+    )
 
     outputs = {
         "price_path": price_path,
         "returns": returns_plot,
         "garch": garch_plot,
         "mfdfa": mfdfa_plot,
+        "rs": rs_plot,
+        "dfa": dfa_plot,
+        "structure": structure_plot,
+        "wtmm": wtmm_plot,
     }
 
     summary = {
