@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+
 import json
 import re
 from dataclasses import dataclass
@@ -15,6 +16,7 @@ import pandas as pd
 from fractalfinance.analysis.common import (
     compute_fractal_metrics,
     compute_windowed_fractal_statistics,
+
     ensure_dir,
     fit_garch,
     fit_msm,
@@ -258,6 +260,7 @@ def _gaf_summary(
 
     actual_image_size = config.image_size or max(config.resolutions)
 
+
     if windows == 0:
         warnings.append(
             "Insufficient samples to form a single GAF window at this scale."
@@ -282,6 +285,7 @@ def _gaf_summary(
             select = [0]
         save_gaf_png(cube_np, image_path, select_channels=select)
         sample_images["first_window_channels"] = select
+
         sample_images["first_window"] = str(image_path)
 
     median_spacing = _median_spacing_seconds(returns.index)
@@ -295,6 +299,7 @@ def _gaf_summary(
         "stride": int(config.stride),
         "resolutions": [int(r) for r in config.resolutions],
         "image_size": int(actual_image_size),
+
         "kinds": list(config.kinds),
         "channels": first_channels,
         "windows": int(windows),
@@ -308,6 +313,7 @@ def _gaf_summary(
             actual_size=actual_image_size,
             window=config.window,
         ),
+
     }
     return summary, warnings
 
@@ -318,6 +324,7 @@ def _serialize_timestamp(ts: pd.Timestamp) -> str:
         ts = ts.tz_localize("UTC")
     else:
         ts = ts.tz_convert("UTC")
+
     return ts.isoformat()
 
 
@@ -358,11 +365,13 @@ def run_scale(
 
     prices = prices.astype(float).dropna()
     warnings: list[str] = []
+
     if prices.empty:
         return {
             "label": label,
             "interval": config.interval,
             "warnings": ["No data returned for this interval."],
+
             "outputs": {},
             "gaf": {},
         }
@@ -377,6 +386,7 @@ def run_scale(
                 window=config.gaf.window,
             )
         )
+
 
     returns = np.log(prices).diff().dropna()
     periods_per_year = infer_periods_per_year(prices.index)
@@ -446,6 +456,7 @@ def run_scale(
     fractal_windowed["windows"] = fractal_windows_serialised
 
     outputs: dict[str, str] = {}
+
     price_path = plot_price_series(
         prices,
         title=f"{label} close",
@@ -454,6 +465,7 @@ def run_scale(
         filename=f"{slug}_price.png",
     )
     outputs["price"] = price_path
+
     returns_path = plot_returns_histogram(
         returns,
         out_dir=scale_dir,
@@ -477,6 +489,7 @@ def run_scale(
             title=f"{label} MFDFA spectrum",
         )
         outputs["mfdfa"] = mfdfa_path
+
 
     gaf_summary, gaf_warnings = _gaf_summary(
         returns,
@@ -542,6 +555,7 @@ def run_scale(
         warnings.extend(gaf_warnings)
     if fractal_windowed.get("warnings"):
         warnings.extend(str(msg) for msg in fractal_windowed["warnings"])
+
     if warnings:
         summary["warnings"] = warnings
 
@@ -653,6 +667,7 @@ def run_multi_scale_analysis(
     return {
         "results": results,
         "comparison": comparison,
+
         "summary_path": str(master_path),
     }
 

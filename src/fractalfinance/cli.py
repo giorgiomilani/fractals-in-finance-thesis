@@ -322,6 +322,7 @@ def multi_scale_cmd(
             if message:
                 typer.echo(f"    {message}")
 
+
     if show_summary:
         typer.echo(json.dumps(result, indent=2))
 
