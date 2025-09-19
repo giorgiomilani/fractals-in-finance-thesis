@@ -1,87 +1,149 @@
 # Fractals in Finance Thesis
 
-This repository serves as an experimental sandbox for studying fractal
-behaviour in financial markets.  It gathers classical and modern tools for
-generating and analysing time series with long–memory or multifractal
-characteristics.  The code base is intentionally lightweight so that new ideas
-can be prototyped quickly.
+This repository is the working notebook for the "Fractals in Finance" thesis.
+It combines classical time-series tooling with modern multifractal diagnostics
+so experimental ideas can be evaluated quickly.  The code is organised as a
+Python package with a Typer command-line interface, ready-to-run examples, and a
+growing library of estimators and stochastic simulators.
 
-### What you will find
+## Contents at a glance
 
-- **Estimators** – algorithms such as DFA, Wavelet and MFDFA to measure Hurst
-  exponents and multifractal spectra.
-- **Stochastic models** – fractional Brownian motion, Multifractal
-  Multiplier (MMAR) and Markov‑switching multifractal (MSM) generators.
-- **Gramian Angular Fields** – utilities to map one‑dimensional price series
-  to images via `gaf_encode`/`gaf_decode` for feeding CNN/VAE models.
-- **Risk metrics** – parametric and EVT‑based Value at Risk and Expected
-  Shortfall calculators.
+- **Estimators** – DFA, MF-DFA, wavelet leaders, structure functions, WTMM and
+  rescaled-range analysis, together with helpers that retain the regression
+  metadata required for reproducible plots.
+- **Stochastic models** – fractional Brownian motion generators, the
+  Multifractal Multiplier (MMAR), and Markov-switching multifractal (MSM)
+  calibrations.
+- **Gramian Angular Fields** – utilities to turn one-dimensional price series
+  into images for downstream ML experiments (`gaf_encode`, `gaf_decode`, and a
+  configurable GAF dataset pipeline).
+- **Risk metrics** – parametric and EVT-based Value at Risk/Expected Shortfall
+  estimators with Hydra configuration files for rapid experimentation.
+- **Example workflows** – S&P 500, multi-asset, and multi-scale analysis
+  scripts that orchestrate downloads, model fitting, and visualisation.
 
-Each component is documented with small tests and examples so it can be reused
-in isolation or composed into larger experiments.
+All components ship with lightweight tests and example entry points so they can
+be reused in isolation or stitched together into larger experiments.
 
+---
 
 ## Installation
 
-The project targets Python 3.11+.  Install the package in editable mode
-along with its dependencies:
+The project targets Python 3.11+.  The quickest way to get started is to create
+a virtual environment and install the package in editable mode:
 
 ```bash
+python -m venv .venv
+source .venv/bin/activate  # PowerShell: .\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
 pip install -e .
 ```
 
-## Running the test-suite
+### PowerShell one-liner sequence
 
-Execute all unit tests with:
+For Windows users, the following commands mirror the setup used in the thesis
+runs:
+
+```powershell
+py -3.11 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+pip install -e .
+python -m fractalfinance.cli --help
+```
+
+The Typer help screen confirms the CLI is wired correctly.
+
+## Test suite
+
+Run the full unit-test collection with:
 
 ```bash
 PYTHONPATH=src pytest -q
 ```
 
-Some tests require optional packages such as `torch` and `Pillow` which are
-listed as project dependencies.
+Optional dependencies such as `torch` and `Pillow` are declared in
+`pyproject.toml`; installing the package with `pip install -e .` pulls the
+required extras.
 
-## Command line interface
+---
 
-The Typer-based CLI exposes experiment runners and helpers:
+## Built-in analysis workflows
 
-```bash
-# after `pip install -e .` or `export PYTHONPATH=src`
-python -m fractalfinance.cli --help
-python -m fractalfinance.cli run model=msm dataset=btc_minute
-```
+The `examples` subcommands encapsulate the end-to-end pipelines used in the
+thesis.  Each workflow downloads data from Yahoo! Finance, computes summary
+statistics, fits AR(1)-GARCH and MSM models, evaluates multifractal diagnostics
+(MF-DFA, R/S, DFA, structure functions, WTMM), and writes consistent plots plus
+JSON summaries under `analysis_outputs/<run>/<asset>/`.
 
-Hydra configuration files for datasets, models and risk metrics live in
-`experiments/configs`.
-
-### Built-in analyses
-
-The CLI can execute the full S&P 500 daily workflow used in the thesis.  All
-outputs land in ``analysis_outputs/<subdir>`` so plots remain discoverable:
+### S&P 500 daily benchmark
 
 ```bash
-python -m fractalfinance.cli examples sp500-daily --start 2022-01-01 \
-    --end 2024-12-31 --output-subdir sp500_daily --show-summary
+python -m fractalfinance.cli examples sp500-daily \
+    --start 2022-01-01 --end 2024-12-31 \
+    --output-subdir sp500_daily --show-summary
 ```
 
-The command fetches data from Yahoo! Finance, fits AR(1)-GARCH and MSM models,
-computes fractal diagnostics, and saves both the figures and a JSON summary.  A
-list of generated image paths is echoed after the run so you can open them
-immediately.
+The command stores price, returns, volatility-overlay, MF-DFA, R/S, DFA,
+structure-function, and WTMM figures inside
+`analysis_outputs/sp500_daily/sp500_daily/`, alongside
+`sp500_summary.json`, which lists every generated artefact.
 
-## Plotting
-
-The command line interface can generate visualisations for the main stochastic
-processes used in the thesis.  Run any of the commands below to create images in
-the current directory:
+### Five-asset portfolio study
 
 ```bash
-python -m fractalfinance.cli plot fbm   # Fractional Brownian motion path
-python -m fractalfinance.cli plot gaf   # series with its GASF and GADF
-python -m fractalfinance.cli plot mmar  # cascade returns + price path
+python -m fractalfinance.cli examples multi-asset \
+    --base-output-subdir multi_asset_full_models --show-summary
 ```
 
-All plotting helpers now accept user-provided series, so you can reuse them to
-visualise your own datasets.  When no output path is supplied they write to the
-project's ``analysis_outputs`` directory by default, keeping artefacts in a
-single location.
+The default bundle analyses the S&P 500, Bitcoin, EUR/USD, Apple, and TLT over
+their full daily histories since 2020.  Each asset receives the complete suite
+of plots (price, returns, GARCH, MF-DFA, R/S, DFA, structure, WTMM) plus its own
+`*_summary.json`.  A consolidated `multi_asset_summary.json` is written to the
+requested base directory so you can discover artefacts at a glance.  CLI options
+allow overriding tickers, labels, and date ranges for bespoke studies.
+
+### Multi-scale diagnostics
+
+```bash
+python -m fractalfinance.cli examples multi-scale ^GSPC \
+    --start 1990-01-01 --include-intraday \
+    --output-subdir sp500_multi_scale --show-summary
+```
+
+This pipeline sweeps the Yahoo! Finance intervals (1m → 1mo), calibrates GARCH
+and MSM models at each scale, computes the fractal metrics, and produces price,
+returns, GARCH, MF-DFA, R/S, DFA, structure-function, WTMM, and Gramian Angular
+Field cubes.  Intraday downloads may emit throttle warnings; they are recorded
+in the per-scale summaries together with any image-size recommendations.
+
+### Plotting utilities
+
+Individual simulators and transforms can be visualised directly:
+
+```bash
+python -m fractalfinance.cli plot fbm   # Fractional Brownian motion sample
+python -m fractalfinance.cli plot gaf   # Original series with GASF/GADF views
+python -m fractalfinance.cli plot mmar  # Multifractal Multiplier cascade
+```
+
+When an output path is omitted, images are saved under `analysis_outputs/` so
+artefacts for every experiment remain in a single, version-controlled location.
+
+---
+
+## Repository layout
+
+- `src/fractalfinance/analysis/` – shared helpers for loading data, computing
+  summary statistics, fitting models, and plotting every diagnostic used in the
+  thesis figures.
+- `src/examples/` – reproducible scripts for the S&P 500 benchmark, the
+  five-asset comparison, and the multi-scale sweep.  They showcase how the
+  helper functions compose into full studies.
+- `experiments/` – Hydra configurations plus experiment harnesses for risk and
+  simulation studies.
+- `analysis_outputs/` – sample artefacts generated by the commands above.  These
+  folders double as regression fixtures to ensure figures remain discoverable.
+
+Use the layouts as blueprints when adding new assets or extending the
+experiments to alternative datasets.
