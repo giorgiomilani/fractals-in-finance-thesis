@@ -25,6 +25,7 @@ class GAFWindowDataset(Dataset):
         scale: str = "symmetric",
         resample: str = "paa",
         to_uint8: bool = False,
+        image_size: int | None = None,
         labels: np.ndarray | None = None,
         transform: Callable[[torch.Tensor], torch.Tensor] | None = None,
     ) -> None:
@@ -40,6 +41,7 @@ class GAFWindowDataset(Dataset):
         self.scale = scale
         self.resample = resample
         self.to_uint8 = bool(to_uint8)
+        self.image_size = int(image_size) if image_size is not None else None
         self.transform = transform
         if self.win <= 0 or self.stride <= 0:
             raise ValueError("win and stride must be positive integers")
@@ -61,6 +63,7 @@ class GAFWindowDataset(Dataset):
             scale=self.scale,
             resample=self.resample,
             to_uint8=self.to_uint8,
+            image_size=self.image_size,
         )
         tensor = torch.tensor(cube)
         if not self.to_uint8:
