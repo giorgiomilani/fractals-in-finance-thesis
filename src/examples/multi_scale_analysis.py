@@ -21,10 +21,14 @@ from fractalfinance.analysis.common import (
     fit_garch,
     fit_msm,
     infer_periods_per_year,
+    plot_dfa_fluctuation,
     plot_garch_overlay,
     plot_mfdfa_spectrum,
     plot_price_series,
+    plot_rs_scaling,
     plot_returns_histogram,
+    plot_structure_function_summary,
+    plot_wtmm_spectrum,
     summarise_prices,
 )
 from fractalfinance.gaf.dataset import GAFWindowDataset
@@ -489,6 +493,34 @@ def run_scale(
             title=f"{label} MFDFA spectrum",
         )
         outputs["mfdfa"] = mfdfa_path
+        rs_path = plot_rs_scaling(
+            fractal_result.rs,
+            out_dir=scale_dir,
+            filename=f"{slug}_rs.png",
+            title=f"{label} R/S scaling",
+        )
+        outputs["rs"] = rs_path
+        dfa_path = plot_dfa_fluctuation(
+            fractal_result.dfa,
+            out_dir=scale_dir,
+            filename=f"{slug}_dfa.png",
+            title=f"{label} DFA fluctuation",
+        )
+        outputs["dfa"] = dfa_path
+        structure_path = plot_structure_function_summary(
+            fractal_result.structure,
+            out_dir=scale_dir,
+            filename=f"{slug}_structure.png",
+            title=f"{label} structure-function",
+        )
+        outputs["structure"] = structure_path
+        wtmm_path = plot_wtmm_spectrum(
+            fractal_result.wtmm,
+            out_dir=scale_dir,
+            filename=f"{slug}_wtmm.png",
+            title=f"{label} WTMM spectrum",
+        )
+        outputs["wtmm"] = wtmm_path
 
 
     gaf_summary, gaf_warnings = _gaf_summary(
