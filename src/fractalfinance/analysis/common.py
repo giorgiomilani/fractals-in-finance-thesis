@@ -22,7 +22,14 @@ import numpy as np
 import pandas as pd
 from arch import arch_model
 
-from fractalfinance.estimators import DFA, MFDFA, RS, StructureFunction, WTMM
+from fractalfinance.estimators import (
+    DFA,
+    MFDFA,
+    RS,
+    ScalingResult,
+    StructureFunction,
+    WTMM,
+)
 from fractalfinance.models import msm_fit
 
 
@@ -451,6 +458,183 @@ def plot_mfdfa_spectrum(
     return save_fig(fig, out_dir, filename)
 
 
+def plot_rs_scaling(
+    rs_res: dict[str, Any],
+    *,
+    out_dir: Path,
+    filename: str,
+    title: str = "Rescaled-range scaling",
+) -> str:
+    log_scales = np.asarray(rs_res.get("log_scales"), dtype=float)
+    log_rs = np.asarray(rs_res.get("log_rs"), dtype=float)
+    if log_scales.size == 0 or log_rs.size == 0:
+        raise ValueError("RS result missing log-scaled diagnostic data")
+
+    scales = np.exp(log_scales)
+    rs_vals = np.exp(log_rs)
+
+    fig, ax = plt.subplots(figsize=(8, 6))
+    ax.loglog(scales, rs_vals, marker="o", lw=1.2, label="⟨R/S⟩")
+
+    slope = rs_res.get("H")
+    intercept = rs_res.get("intercept")
+    if slope is not None and intercept is not None:
+        x_fit = np.linspace(log_scales.min(), log_scales.max(), 200)
+        y_fit = slope * x_fit + intercept
+        ax.loglog(
+            np.exp(x_fit),
+            np.exp(y_fit),
+            color="#d62728",
+            linestyle="--",
+            label=f"H ≈ {float(slope):.3f}",
+        )
+        ax.legend()
+
+    ax.set_xlabel("Window size n")
+    ax.set_ylabel("⟨R/S⟩")
+    ax.set_title(title)
+    ax.grid(True, which="both", alpha=0.3)
+    return save_fig(fig, out_dir, filename)
+
+
+def plot_dfa_fluctuation(
+    dfa_res: dict[str, Any],
+    *,
+    out_dir: Path,
+    filename: str,
+    title: str = "DFA fluctuation function",
+) -> str:
+    log_scales = np.asarray(dfa_res.get("log_scales"), dtype=float)
+    log_fluct = np.asarray(dfa_res.get("log_fluct"), dtype=float)
+    if log_scales.size == 0 or log_fluct.size == 0:
+        raise ValueError("DFA result missing log-scaled diagnostic data")
+
+    scales = np.exp(log_scales)
+    fluct = np.exp(log_fluct)
+
+    fig, ax = plt.subplots(figsize=(8, 6))
+    ax.loglog(scales, fluct, marker="o", lw=1.2, label="F(s)")
+
+    slope = dfa_res.get("H")
+    intercept = dfa_res.get("intercept")
+    fit_start = int(dfa_res.get("fit_start", 0))
+    fit_stop = int(dfa_res.get("fit_stop", log_scales.size))
+    if (
+        slope is not None
+        and intercept is not None
+        and 0 <= fit_start < fit_stop <= log_scales.size
+    ):
+        x_fit = log_scales[fit_start:fit_stop]
+        y_fit = slope * x_fit + intercept
+        ax.loglog(
+            np.exp(x_fit),
+            np.exp(y_fit),
+            color="#d62728",
+            linestyle="--",
+            label=f"H ≈ {float(slope):.3f}",
+        )
+        ax.legend()
+
+    ax.set_xlabel("Scale s")
+    ax.set_ylabel("Fluctuation F(s)")
+    ax.set_title(title)
+    ax.grid(True, which="both", alpha=0.3)
+    return save_fig(fig, out_dir, filename)
+
+
+def plot_structure_function_summary(
+    struct_res: ScalingResult,
+    *,
+    out_dir: Path,
+    filename: str,
+    title: str = "Structure-function diagnostics",
+) -> str:
+    qs = np.asarray(struct_res.q, dtype=float)
+    tau = np.asarray(struct_res.tau, dtype=float)
+    alpha = np.asarray(struct_res.alpha, dtype=float)
+    f_alpha = np.asarray(struct_res.f_alpha, dtype=float)
+
+    mask_tau = np.isfinite(qs) & np.isfinite(tau)
+    mask_spec = np.isfinite(alpha) & np.isfinite(f_alpha)
+
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+    if mask_tau.any():
+        axes[0].plot(qs[mask_tau], tau[mask_tau], marker="o", lw=1.2, label="τ(q)")
+    axes[0].set_xlabel("q")
+    axes[0].set_ylabel("τ(q)")
+    axes[0].set_title("Scaling exponents")
+    axes[0].grid(True, alpha=0.3)
+
+    if struct_res.H is not None and mask_tau.any():
+        q_grid = np.linspace(qs[mask_tau].min(), qs[mask_tau].max(), 200)
+        lambda_sq = float(struct_res.lambda_) ** 2
+        zeta_fit = struct_res.H * q_grid - 0.5 * lambda_sq * q_grid * (q_grid - 1.0)
+        axes[0].plot(
+            q_grid,
+            zeta_fit,
+            color="#d62728",
+            linestyle="--",
+            label=f"Fit (H ≈ {struct_res.H:.3f})",
+        )
+        axes[0].legend()
+
+    if mask_spec.any():
+        axes[1].plot(
+            alpha[mask_spec],
+            f_alpha[mask_spec],
+            marker="o",
+            lw=1.2,
+        )
+    axes[1].set_xlabel(r"$\alpha$")
+    axes[1].set_ylabel(r"$f(\alpha)$")
+    axes[1].set_title("Singularity spectrum")
+    axes[1].grid(True, alpha=0.3)
+
+    fig.suptitle(title)
+    fig.tight_layout(rect=(0, 0, 1, 0.95))
+    return save_fig(fig, out_dir, filename)
+
+
+def plot_wtmm_spectrum(
+    wtmm_res: dict[str, np.ndarray],
+    *,
+    out_dir: Path,
+    filename: str,
+    title: str = "WTMM diagnostics",
+) -> str:
+    qs = np.asarray(wtmm_res.get("q"), dtype=float)
+    tau = np.asarray(wtmm_res.get("tau(q)"), dtype=float)
+    alpha = np.asarray(wtmm_res.get("alpha"), dtype=float)
+    f_alpha = np.asarray(wtmm_res.get("f(alpha)"), dtype=float)
+
+    mask_tau = np.isfinite(qs) & np.isfinite(tau)
+    mask_spec = np.isfinite(alpha) & np.isfinite(f_alpha)
+
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+    if mask_tau.any():
+        axes[0].plot(qs[mask_tau], tau[mask_tau], marker="o", lw=1.2)
+    axes[0].set_xlabel("q")
+    axes[0].set_ylabel("τ(q)")
+    axes[0].set_title("Partition function slopes")
+    axes[0].grid(True, alpha=0.3)
+
+    if mask_spec.any():
+        axes[1].plot(
+            alpha[mask_spec],
+            f_alpha[mask_spec],
+            marker="o",
+            lw=1.2,
+        )
+    axes[1].set_xlabel(r"$\alpha$")
+    axes[1].set_ylabel(r"$f(\alpha)$")
+    axes[1].set_title("Singularity spectrum")
+    axes[1].grid(True, alpha=0.3)
+
+    fig.suptitle(title)
+    fig.tight_layout(rect=(0, 0, 1, 0.95))
+    return save_fig(fig, out_dir, filename)
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # timescale inference
 # ──────────────────────────────────────────────────────────────────────────────
@@ -502,6 +686,10 @@ __all__ = [
     "plot_returns_histogram",
     "plot_garch_overlay",
     "plot_mfdfa_spectrum",
+    "plot_rs_scaling",
+    "plot_dfa_fluctuation",
+    "plot_structure_function_summary",
+    "plot_wtmm_spectrum",
     "infer_periods_per_year",
 ]
 

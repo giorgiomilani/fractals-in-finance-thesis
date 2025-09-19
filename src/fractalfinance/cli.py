@@ -149,6 +149,18 @@ def multi_asset_cmd(
     base_output_subdir: str = typer.Option(
         "multi_asset", help="Root folder under analysis_outputs to store results."
     ),
+    sp500_symbol: str = typer.Option(
+        "^GSPC", help="Yahoo Finance ticker for the equity index leg.",
+    ),
+    sp500_label: str = typer.Option(
+        "S&P 500 Index", help="Display label for the equity index leg.",
+    ),
+    sp500_start: str = typer.Option(
+        "2020-01-01", help="Start date for the equity index run (YYYY-MM-DD).",
+    ),
+    sp500_end: Optional[str] = typer.Option(
+        None, help="Optional end date for the equity index run (YYYY-MM-DD).",
+    ),
     bitcoin_symbol: str = typer.Option(
         "BTC-USD", help="Yahoo Finance ticker for the Bitcoin pair."
     ),
@@ -194,12 +206,18 @@ def multi_asset_cmd(
         help="Print the combined JSON summary after finishing the runs.",
     ),
 ) -> None:
-    """Execute the four-asset bundle analysis and save figures."""
+    """Execute the five-asset bundle analysis and save figures."""
 
     _ensure_experiments_on_path()
     from examples import asset_analysis
 
     overrides = {
+        "sp500": {
+            "symbol": sp500_symbol,
+            "label": sp500_label,
+            "start": sp500_start,
+            "end": sp500_end,
+        },
         "bitcoin": {
             "symbol": bitcoin_symbol,
             "start": bitcoin_start,
