@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Sequence
 
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -363,6 +364,7 @@ def compute_windowed_fractal_statistics(
     }
 
 
+
 # ──────────────────────────────────────────────────────────────────────────────
 # plotting helpers
 # ──────────────────────────────────────────────────────────────────────────────
@@ -487,12 +489,14 @@ __all__ = [
     "to_naive",
     "annualise",
     "compute_window_starts",
+
     "h_at",
     "summarise_prices",
     "fit_garch",
     "fit_msm",
     "compute_fractal_metrics",
     "compute_windowed_fractal_statistics",
+
     "plot_price_series",
     "plot_returns_histogram",
     "plot_garch_overlay",

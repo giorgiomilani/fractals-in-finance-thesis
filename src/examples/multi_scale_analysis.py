@@ -14,6 +14,7 @@ import pandas as pd
 from fractalfinance.analysis.common import (
     compute_fractal_metrics,
     compute_windowed_fractal_statistics,
+
     ensure_dir,
     fit_garch,
     fit_msm,
@@ -329,6 +330,7 @@ def run_scale(
         fractal_windows_serialised.append(serialised_record)
     fractal_windowed["windows"] = fractal_windows_serialised
 
+
     price_path = plot_price_series(
         prices,
         title=f"{label} close",
@@ -377,6 +379,7 @@ def run_scale(
         )
         fractal_windowed.setdefault("warnings", []).append(diff_warn)
 
+
     summary = {
         "symbol": symbol,
         "label": label,
@@ -389,6 +392,7 @@ def run_scale(
         "msm": msm_summary,
         "fractal": fractal.summary,
         "fractal_windowed": fractal_windowed,
+
         "gaf": gaf_summary,
         "outputs": {
             "price": price_path,
@@ -404,6 +408,7 @@ def run_scale(
         warnings.extend(gaf_warnings)
     if fractal_windowed.get("warnings"):
         warnings.extend(str(msg) for msg in fractal_windowed["warnings"])
+
     if warnings:
         summary["warnings"] = warnings
 
