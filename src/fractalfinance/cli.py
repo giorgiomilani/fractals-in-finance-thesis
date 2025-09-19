@@ -251,6 +251,81 @@ def multi_asset_cmd(
         typer.echo(json.dumps(results, indent=2))
 
 
+@examples_app.command("multi-scale")
+def multi_scale_cmd(
+    symbol: str = typer.Argument("^GSPC", help="Yahoo Finance ticker symbol."),
+    start: str = typer.Option("1990-01-01", help="Start date (YYYY-MM-DD)."),
+    end: Optional[str] = typer.Option(None, help="End date (defaults to today)."),
+    output_subdir: str = typer.Option(
+        "multi_scale", help="Folder under analysis_outputs for the run."
+    ),
+    include_intraday: bool = typer.Option(
+        True, help="Include minute/hourly intervals in the comparison."
+    ),
+    show_summary: bool = typer.Option(
+        False, help="Print the combined JSON summary after finishing the run."
+    ),
+) -> None:
+    """Run the multi-timescale analysis pipeline for ``symbol``."""
+
+    _ensure_experiments_on_path()
+    from examples import multi_scale_analysis
+
+    scales = multi_scale_analysis.default_scale_configs()
+    if not include_intraday:
+        skip = {"1m", "5m", "15m", "1h"}
+        scales = [cfg for cfg in scales if cfg.interval not in skip]
+
+    result = multi_scale_analysis.run_multi_scale_analysis(
+        symbol,
+        start=start,
+        end=end,
+        scales=scales,
+        output_subdir=output_subdir,
+    )
+
+    summary_path = result.get("summary_path")
+    if summary_path:
+        typer.echo(f"Summary written to {summary_path}")
+
+    for slug, summary in result.get("results", {}).items():
+        label = summary.get("label", slug)
+        summary_path = summary.get("summary_path")
+        typer.echo(f"{label} summary: {summary_path}")
+        outputs = summary.get("outputs", {})
+        if outputs:
+            typer.echo(f"{label} figures:")
+            for name, path in outputs.items():
+                typer.echo(f"  {name}: {path}")
+        if summary.get("warnings"):
+            typer.echo("  warnings:")
+            for warn in summary["warnings"]:
+                typer.echo(f"    - {warn}")
+        if summary.get("error"):
+            typer.echo(f"  error: {summary['error']}")
+
+    comparison = result.get("comparison", {}) if isinstance(result, dict) else {}
+    recommendations = comparison.get("image_recommendations")
+    if recommendations:
+        typer.echo("Image size recommendations:")
+        for rec in recommendations:
+            label = rec.get("label", rec.get("interval", "scale"))
+            status = rec.get("status")
+            message = rec.get("message")
+            configured = rec.get("configured_image_size")
+            suggested = rec.get("recommended_image_size")
+            typer.echo(
+                "  - "
+                f"{label}: status={status}, configured={configured}, "
+                f"recommended={suggested}"
+            )
+            if message:
+                typer.echo(f"    {message}")
+
+    if show_summary:
+        typer.echo(json.dumps(result, indent=2))
+
+
 app.add_typer(examples_app, name="examples")
 
 
