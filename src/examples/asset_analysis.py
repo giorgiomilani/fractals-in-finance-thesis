@@ -194,6 +194,20 @@ def run_asset_analysis(
 def _default_configs() -> list[AssetRunConfig]:
     return [
         AssetRunConfig(
+            key="sp500",
+            symbol="^GSPC",
+            label="S&P 500 Index",
+            asset_type="equity_index",
+            start="2020-01-01",
+            annualisation_days=252.0,
+            price_ylabel="Index level",
+            output_subdir="sp500_daily",
+            notes=(
+                "Benchmark US equity index used alongside the other core asset"
+                " classes in the thesis multi-asset comparison."
+            ),
+        ),
+        AssetRunConfig(
             key="bitcoin",
             symbol="BTC-USD",
             label="Bitcoin / US Dollar",
