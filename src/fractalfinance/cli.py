@@ -304,6 +304,25 @@ def multi_scale_cmd(
         if summary.get("error"):
             typer.echo(f"  error: {summary['error']}")
 
+    comparison = result.get("comparison", {}) if isinstance(result, dict) else {}
+    recommendations = comparison.get("image_recommendations")
+    if recommendations:
+        typer.echo("Image size recommendations:")
+        for rec in recommendations:
+            label = rec.get("label", rec.get("interval", "scale"))
+            status = rec.get("status")
+            message = rec.get("message")
+            configured = rec.get("configured_image_size")
+            suggested = rec.get("recommended_image_size")
+            typer.echo(
+                "  - "
+                f"{label}: status={status}, configured={configured}, "
+                f"recommended={suggested}"
+            )
+            if message:
+                typer.echo(f"    {message}")
+
+
     if show_summary:
         typer.echo(json.dumps(result, indent=2))
 

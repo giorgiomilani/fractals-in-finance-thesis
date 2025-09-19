@@ -266,7 +266,7 @@ def run_default_assets(
 
     master_path: Path | None = None
     if write_master_summary:
-        master_dir = _ensure_dir(DEFAULT_OUTPUT_DIR / base_output_subdir)
+        master_dir = ensure_dir(DEFAULT_OUTPUT_DIR / base_output_subdir)
         master_path = master_dir / "multi_asset_summary.json"
         with open(master_path, "w", encoding="utf-8") as fh:
             json.dump(results, fh, indent=2)

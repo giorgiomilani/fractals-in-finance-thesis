@@ -11,9 +11,11 @@ without re-implementing the heavy lifting.
 
 from __future__ import annotations
 
+from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Sequence
+
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -64,6 +66,23 @@ def annualise(daily_value: float, periods_per_year: float) -> float:
     """Scale a per-period volatility estimate to yearly terms."""
 
     return float(daily_value * np.sqrt(periods_per_year))
+
+
+def compute_window_starts(length: int, window: int, stride: int) -> list[int]:
+    """Return sliding-window start offsets matching ``GAFWindowDataset``."""
+
+    window = int(window)
+    stride = int(stride)
+    if window <= 0 or stride <= 0:
+        raise ValueError("window and stride must be positive integers")
+    if length < window:
+        return []
+    last_start = length - window
+    starts = list(range(0, last_start + 1, stride))
+    if starts and starts[-1] != last_start:
+        starts.append(last_start)
+    return starts
+
 
 
 def h_at(mfdfa_res: dict[str, np.ndarray], q: float) -> float | None:
@@ -221,6 +240,132 @@ def compute_fractal_metrics(
     return FractalResult(summary, rs_res, dfa_res, struct_res, mfdfa_res, wtmm_res)
 
 
+def _describe_distribution(values: Sequence[float]) -> dict[str, float]:
+    if not values:
+        return {}
+    arr = np.asarray(values, dtype=float)
+    stats = {
+        "mean": float(np.mean(arr)),
+        "median": float(np.median(arr)),
+        "min": float(np.min(arr)),
+        "max": float(np.max(arr)),
+    }
+    if arr.size > 1:
+        stats.update(
+            {
+                "std": float(np.std(arr, ddof=0)),
+                "q05": float(np.quantile(arr, 0.05)),
+                "q25": float(np.quantile(arr, 0.25)),
+                "q75": float(np.quantile(arr, 0.75)),
+                "q95": float(np.quantile(arr, 0.95)),
+            }
+        )
+    else:
+        stats.update(
+            {
+                "std": 0.0,
+                "q05": stats["min"],
+                "q25": stats["min"],
+                "q75": stats["max"],
+                "q95": stats["max"],
+            }
+        )
+    return stats
+
+
+def compute_windowed_fractal_statistics(
+    prices: pd.Series,
+    returns: pd.Series,
+    *,
+    window: int,
+    stride: int,
+    structure_from_levels: bool = False,
+) -> dict[str, Any]:
+    """Compute fractal summaries on sliding windows aligned with GAF cubes."""
+
+    prices = prices.sort_index()
+    returns = returns.sort_index()
+    starts = compute_window_starts(len(returns), window, stride)
+
+    metric_values: dict[str, list[float]] = defaultdict(list)
+    windows: list[dict[str, Any]] = []
+    warnings: list[str] = []
+
+    for start in starts:
+        end = start + int(window)
+        window_returns = returns.iloc[start:end]
+        if len(window_returns) < int(window):
+            warnings.append(
+                f"Window starting at offset {start} shorter than requested size."
+            )
+            continue
+        start_label = window_returns.index[0]
+        start_pos = prices.index.get_indexer([start_label])[0]
+        if start_pos == -1:
+            warnings.append(
+                f"Price index misalignment for window starting {start_label!s}."
+            )
+            continue
+        slice_start = max(0, start_pos - 1)
+        slice_end = min(len(prices), start_pos + len(window_returns))
+        price_window = prices.iloc[slice_start:slice_end]
+        price_window = price_window.dropna()
+        if len(price_window) < len(window_returns):
+            warnings.append(
+                "Insufficient price observations to pair with returns for window "
+                f"starting {start_label!s}."
+            )
+            continue
+        try:
+            fractal = compute_fractal_metrics(
+                price_window,
+                window_returns,
+                structure_from_levels=structure_from_levels,
+            )
+        except Exception as exc:  # pragma: no cover - estimator edge cases
+            warnings.append(
+                "Fractal estimators failed for window starting "
+                f"{window_returns.index[0]!s}: {exc}"
+            )
+            continue
+
+        summary = {
+            key: (float(value) if value is not None else None)
+            for key, value in fractal.summary.items()
+        }
+        windows.append(
+            {
+                "offset": int(start),
+                "start": window_returns.index[0],
+                "end": window_returns.index[-1],
+                "summary": summary,
+            }
+        )
+        for key, value in summary.items():
+            if value is None:
+                continue
+            if not np.isfinite(value):
+                continue
+            metric_values[key].append(float(value))
+
+    aggregates = {}
+    for key, values in metric_values.items():
+        distribution = _describe_distribution(values)
+        aggregates[key] = {"count": len(values), **distribution}
+
+    return {
+        "window": int(window),
+        "stride": int(stride),
+        "total_windows": len(starts),
+        "processed_windows": len(windows),
+        "failed_windows": len(starts) - len(windows),
+        "aggregates": aggregates,
+        "windows": windows,
+        "warnings": warnings,
+    }
+
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # plotting helpers
 # ──────────────────────────────────────────────────────────────────────────────
@@ -344,11 +489,15 @@ __all__ = [
     "save_fig",
     "to_naive",
     "annualise",
+    "compute_window_starts",
+
     "h_at",
     "summarise_prices",
     "fit_garch",
     "fit_msm",
     "compute_fractal_metrics",
+    "compute_windowed_fractal_statistics",
+
     "plot_price_series",
     "plot_returns_histogram",
     "plot_garch_overlay",

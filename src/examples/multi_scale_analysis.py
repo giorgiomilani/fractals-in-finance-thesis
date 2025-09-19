@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+
 import json
 import re
 from dataclasses import dataclass
@@ -13,6 +15,8 @@ import pandas as pd
 
 from fractalfinance.analysis.common import (
     compute_fractal_metrics,
+    compute_windowed_fractal_statistics,
+
     ensure_dir,
     fit_garch,
     fit_msm,
@@ -167,6 +171,66 @@ def default_scale_configs() -> list[ScaleConfig]:
     ]
 
 
+def _normalise_counts(counts: dict[str, int]) -> dict[str, float]:
+    total = sum(counts.values())
+    if total <= 0:
+        return {}
+    return {key: value / total for key, value in counts.items()}
+
+
+def _gaf_image_evaluation(
+    *,
+    config: GAFScaleConfig,
+    actual_size: int,
+    window: int,
+) -> dict[str, object]:
+    max_resolution = max(int(r) for r in config.resolutions)
+    configured = int(config.image_size or max_resolution)
+    ratio = actual_size / max_resolution if max_resolution else None
+    points_per_pixel = window / actual_size if actual_size else None
+
+    evaluation: dict[str, object] = {
+        "largest_resolution": max_resolution,
+        "configured_image_size": configured,
+        "actual_image_size": int(actual_size),
+        "scale_ratio": float(ratio) if ratio is not None else None,
+        "points_per_pixel": float(points_per_pixel)
+        if points_per_pixel is not None
+        else None,
+        "status": "ok",
+    }
+
+    if actual_size < max_resolution:
+        recommended = max(
+            max_resolution,
+            int(2 ** math.ceil(math.log2(max_resolution))),
+        )
+        evaluation.update(
+            {
+                "status": "increase",
+                "recommended_image_size": recommended,
+                "message": (
+                    "Actual image size is smaller than the highest-resolution "
+                    "PAA slice; consider increasing the output image size for "
+                    "finer detail."
+                ),
+            }
+        )
+    elif actual_size > max_resolution * 2:
+        evaluation.update(
+            {
+                "status": "oversized",
+                "recommended_image_size": max_resolution * 2,
+                "message": (
+                    "Configured image size greatly exceeds the base resolution; "
+                    "downsampling may not add fidelity and increases storage."
+                ),
+            }
+        )
+
+    return evaluation
+
+
 def _gaf_summary(
     returns: pd.Series,
     *,
@@ -194,6 +258,9 @@ def _gaf_summary(
 
     first_channels = 0
 
+    actual_image_size = config.image_size or max(config.resolutions)
+
+
     if windows == 0:
         warnings.append(
             "Insufficient samples to form a single GAF window at this scale."
@@ -209,9 +276,16 @@ def _gaf_summary(
         }
         cube, _ = dataset[0]
         cube_np = cube.detach().cpu().numpy()
+        actual_image_size = int(cube_np.shape[-1])
         first_channels = int(cube_np.shape[0])
         image_path = out_dir / f"{slug}_gaf_sample.png"
-        save_gaf_png(cube_np, image_path)
+        if first_channels >= 3:
+            select = [0, 1, 2]
+        else:
+            select = [0]
+        save_gaf_png(cube_np, image_path, select_channels=select)
+        sample_images["first_window_channels"] = select
+
         sample_images["first_window"] = str(image_path)
 
     median_spacing = _median_spacing_seconds(returns.index)
@@ -224,20 +298,33 @@ def _gaf_summary(
         "window": int(config.window),
         "stride": int(config.stride),
         "resolutions": [int(r) for r in config.resolutions],
-        "image_size": int(config.image_size or max(config.resolutions)),
+        "image_size": int(actual_image_size),
+
         "kinds": list(config.kinds),
         "channels": first_channels,
         "windows": int(windows),
         "label_distribution": label_distribution,
+        "label_distribution_share": _normalise_counts(label_distribution),
         "window_span_seconds": window_span,
         "window_span_pretty": _format_duration(window_span),
         "sample_images": sample_images,
+        "image_evaluation": _gaf_image_evaluation(
+            config=config,
+            actual_size=actual_image_size,
+            window=config.window,
+        ),
+
     }
     return summary, warnings
 
 
 def _serialize_timestamp(ts: pd.Timestamp) -> str:
-    ts = pd.Timestamp(ts, tz="UTC")
+    ts = pd.Timestamp(ts)
+    if ts.tz is None:
+        ts = ts.tz_localize("UTC")
+    else:
+        ts = ts.tz_convert("UTC")
+
     return ts.isoformat()
 
 
@@ -273,41 +360,102 @@ def run_scale(
             "error": str(exc),
             "outputs": {},
             "gaf": {},
+            "warnings": [str(exc)],
         }
 
-    prices = prices.astype(float)
+    prices = prices.astype(float).dropna()
+    warnings: list[str] = []
+
     if prices.empty:
         return {
             "label": label,
             "interval": config.interval,
-            "warning": "No data returned for this interval.",
+            "warnings": ["No data returned for this interval."],
+
             "outputs": {},
             "gaf": {},
         }
 
     min_points = config.resolved_min_points()
     if len(prices) < min_points:
-        return {
-            "label": label,
-            "interval": config.interval,
-            "warning": (
-                f"Only {len(prices)} observations available; need at least {min_points} "
-                "to build sliding windows."
-            ),
-            "observations": int(len(prices)),
-            "outputs": {},
-            "gaf": {
-                "window": int(config.gaf.window),
-                "stride": int(config.gaf.stride),
-            },
-        }
+        warnings.append(
+            "Only {count} observations available; {needed} recommended to "
+            "populate {window}-point windows.".format(
+                count=len(prices),
+                needed=min_points,
+                window=config.gaf.window,
+            )
+        )
+
 
     returns = np.log(prices).diff().dropna()
     periods_per_year = infer_periods_per_year(prices.index)
     stats = summarise_prices(prices, returns, periods_per_year=periods_per_year)
-    garch = fit_garch(returns, periods_per_year=periods_per_year)
-    msm_summary = fit_msm(returns)
-    fractal = compute_fractal_metrics(prices, returns)
+
+    returns_count = len(returns)
+
+    garch_result = None
+    garch_error = None
+    if returns_count < 10:
+        garch_error = (
+            f"Insufficient return observations for GARCH (have {returns_count}, need ≥10)."
+        )
+        warnings.append(garch_error)
+    else:
+        try:
+            garch_result = fit_garch(returns, periods_per_year=periods_per_year)
+        except Exception as exc:  # pragma: no cover - estimator edge cases
+            garch_error = str(exc)
+            warnings.append(f"GARCH fit failed: {exc}")
+
+    msm_summary: dict[str, object] | None = None
+    msm_error = None
+    if returns_count < 50:
+        msm_error = (
+            f"Insufficient return observations for MSM (have {returns_count}, need ≥50)."
+        )
+        warnings.append(msm_error)
+    else:
+        try:
+            msm_summary = fit_msm(returns)
+        except Exception as exc:  # pragma: no cover - estimator edge cases
+            msm_error = str(exc)
+            warnings.append(f"MSM fit failed: {exc}")
+
+    fractal_result = None
+    fractal_error = None
+    if returns_count < 32:
+        fractal_error = (
+            f"Insufficient return observations for fractal metrics (have {returns_count}, need ≥32)."
+        )
+        warnings.append(fractal_error)
+    else:
+        try:
+            fractal_result = compute_fractal_metrics(prices, returns)
+        except Exception as exc:  # pragma: no cover - estimator edge cases
+            fractal_error = str(exc)
+            warnings.append(f"Fractal estimators failed: {exc}")
+
+    fractal_windowed = compute_windowed_fractal_statistics(
+        prices,
+        returns,
+        window=config.gaf.window,
+        stride=config.gaf.stride,
+    )
+
+    fractal_windows_serialised: list[dict[str, object]] = []
+    for record in fractal_windowed.get("windows", []):
+        start_ts = record.get("start")
+        end_ts = record.get("end")
+        serialised_record = dict(record)
+        if start_ts is not None:
+            serialised_record["start"] = _serialize_timestamp(start_ts)
+        if end_ts is not None:
+            serialised_record["end"] = _serialize_timestamp(end_ts)
+        fractal_windows_serialised.append(serialised_record)
+    fractal_windowed["windows"] = fractal_windows_serialised
+
+    outputs: dict[str, str] = {}
 
     price_path = plot_price_series(
         prices,
@@ -316,24 +464,32 @@ def run_scale(
         out_dir=scale_dir,
         filename=f"{slug}_price.png",
     )
+    outputs["price"] = price_path
+
     returns_path = plot_returns_histogram(
         returns,
         out_dir=scale_dir,
         filename=f"{slug}_returns.png",
         title=f"{label} log-returns",
     )
-    garch_path = plot_garch_overlay(
-        returns,
-        garch.conditional_volatility,
-        out_dir=scale_dir,
-        filename=f"{slug}_garch.png",
-    )
-    mfdfa_path = plot_mfdfa_spectrum(
-        fractal.mfdfa,
-        out_dir=scale_dir,
-        filename=f"{slug}_mfdfa.png",
-        title=f"{label} MFDFA spectrum",
-    )
+    outputs["returns"] = returns_path
+    if garch_result is not None:
+        garch_path = plot_garch_overlay(
+            returns,
+            garch_result.conditional_volatility,
+            out_dir=scale_dir,
+            filename=f"{slug}_garch.png",
+        )
+        outputs["garch"] = garch_path
+    if fractal_result is not None:
+        mfdfa_path = plot_mfdfa_spectrum(
+            fractal_result.mfdfa,
+            out_dir=scale_dir,
+            filename=f"{slug}_mfdfa.png",
+            title=f"{label} MFDFA spectrum",
+        )
+        outputs["mfdfa"] = mfdfa_path
+
 
     gaf_summary, gaf_warnings = _gaf_summary(
         returns,
@@ -341,6 +497,43 @@ def run_scale(
         out_dir=scale_dir,
         slug=slug,
     )
+
+    if gaf_summary.get("windows") is not None:
+        fractal_windowed["expected_gaf_windows"] = int(gaf_summary["windows"])
+
+    if (
+        fractal_windowed.get("processed_windows")
+        and gaf_summary.get("windows") is not None
+        and fractal_windowed["processed_windows"] != gaf_summary["windows"]
+    ):
+        diff_warn = (
+            "Windowed fractal metrics processed"
+            f" {fractal_windowed['processed_windows']} samples,"
+            f" but GAF generated {gaf_summary['windows']} windows."
+        )
+        fractal_windowed.setdefault("warnings", []).append(diff_warn)
+
+    garch_summary: dict[str, object] | None
+    if garch_result is not None:
+        garch_summary = garch_result.summary
+    elif garch_error is not None:
+        garch_summary = {"error": garch_error}
+    else:
+        garch_summary = None
+
+    if garch_summary is None:
+        outputs.pop("garch", None)
+
+    if msm_summary is None and msm_error is not None:
+        msm_summary = {"error": msm_error}
+
+    fractal_summary: dict[str, object] | None
+    if fractal_result is not None:
+        fractal_summary = fractal_result.summary
+    elif fractal_error is not None:
+        fractal_summary = {"error": fractal_error}
+    else:
+        fractal_summary = None
 
     summary = {
         "symbol": symbol,
@@ -350,22 +543,19 @@ def run_scale(
         "data_start": _serialize_timestamp(prices.index[0]),
         "data_end": _serialize_timestamp(prices.index[-1]),
         **stats,
-        "garch": garch.summary,
+        "garch": garch_summary,
         "msm": msm_summary,
-        "fractal": fractal.summary,
+        "fractal": fractal_summary,
+        "fractal_windowed": fractal_windowed,
         "gaf": gaf_summary,
-        "outputs": {
-            "price": price_path,
-            "returns": returns_path,
-            "garch": garch_path,
-            "mfdfa": mfdfa_path,
-            **gaf_summary.get("sample_images", {}),
-        },
+        "outputs": {**outputs, **gaf_summary.get("sample_images", {})},
     }
 
-    warnings: list[str] = []
     if gaf_warnings:
         warnings.extend(gaf_warnings)
+    if fractal_windowed.get("warnings"):
+        warnings.extend(str(msg) for msg in fractal_windowed["warnings"])
+
     if warnings:
         summary["warnings"] = warnings
 
@@ -406,12 +596,78 @@ def run_multi_scale_analysis(
         slug = _slugify(f"{symbol}_{cfg.label}")
         results[slug] = summary
 
+    comparison_rows: list[dict[str, object]] = []
+    image_recommendations: list[dict[str, object]] = []
+
+    for summary in results.values():
+        if not isinstance(summary, dict):
+            continue
+
+        gaf_info = summary.get("gaf") or {}
+        fractal_info = summary.get("fractal") or {}
+        windowed = summary.get("fractal_windowed") or {}
+        garch_info = summary.get("garch") or {}
+        msm_info = summary.get("msm") or {}
+
+        label = summary.get("label")
+        row: dict[str, object] = {
+            "label": label,
+            "interval": summary.get("interval"),
+            "observations": summary.get("observations"),
+            "span": summary.get("span"),
+            "gaf_windows": gaf_info.get("windows"),
+            "gaf_channels": gaf_info.get("channels"),
+            "gaf_image_size": gaf_info.get("image_size"),
+            "gaf_window_span_pretty": gaf_info.get("window_span_pretty"),
+            "gaf_label_distribution": gaf_info.get("label_distribution"),
+            "gaf_label_distribution_share": gaf_info.get(
+                "label_distribution_share"
+            ),
+            "fractal_metrics": {
+                "DFA_H": fractal_info.get("DFA_H"),
+                "RS_H": fractal_info.get("RS_H"),
+                "MFDFA_width": fractal_info.get("MFDFA_width"),
+                "WTMM_width": fractal_info.get("WTMM_width"),
+            },
+            "fractal_windowed_processed": windowed.get("processed_windows"),
+            "fractal_windowed_expected": windowed.get("expected_gaf_windows"),
+            "volatility": {
+                "garch_last_cond_vol_annual": garch_info.get(
+                    "last_cond_vol_annual"
+                ),
+                "msm_m_L": msm_info.get("m_L"),
+                "msm_m_H": msm_info.get("m_H"),
+            },
+        }
+        comparison_rows.append(row)
+
+        image_eval = gaf_info.get("image_evaluation")
+        if isinstance(image_eval, dict) and image_eval.get("status") != "ok":
+            image_recommendations.append(
+                {
+                    "label": label,
+                    "interval": summary.get("interval"),
+                    **image_eval,
+                }
+            )
+
+    comparison: dict[str, object] = {"scales": comparison_rows}
+    if image_recommendations:
+        comparison["image_recommendations"] = image_recommendations
+
+    payload = {
+        "results": results,
+        "comparison": comparison,
+    }
+
     master_path = output_dir / f"{_slugify(symbol)}_multi_scale_summary.json"
     with open(master_path, "w", encoding="utf-8") as fh:
-        json.dump(results, fh, indent=2)
+        json.dump(payload, fh, indent=2)
 
     return {
         "results": results,
+        "comparison": comparison,
+
         "summary_path": str(master_path),
     }
 
