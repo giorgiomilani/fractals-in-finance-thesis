@@ -186,7 +186,8 @@ def load_yahoo(
     Returns
     -------
     pandas.Series
-        Series of close prices indexed by timezone-aware timestamps ordered in
+        Series of adjusted close prices (falling back to raw closes when the
+        adjusted series is unavailable) indexed by timezone-aware timestamps in
         ascending order.
 
     Notes
@@ -243,12 +244,27 @@ def load_yahoo(
     try:
         result = payload["chart"]["result"][0]
         timestamps = result["timestamp"]
-        quotes = result["indicators"]["quote"][0]
-        closes = quotes["close"]
     except (KeyError, TypeError, IndexError) as exc:
         raise ValueError("Unexpected Yahoo! Finance response structure") from exc
 
-    if not timestamps or not closes:
+    indicators = result.get("indicators", {}) if isinstance(result, dict) else {}
+    closes: list | None = None
+
+    if isinstance(indicators, dict):
+        adjclose_container = indicators.get("adjclose")
+        if isinstance(adjclose_container, list) and adjclose_container:
+            adjclose_dict = adjclose_container[0]
+            if isinstance(adjclose_dict, dict):
+                closes = adjclose_dict.get("adjclose")
+
+        if closes is None:
+            quote_container = indicators.get("quote")
+            if isinstance(quote_container, list) and quote_container:
+                quote_dict = quote_container[0]
+                if isinstance(quote_dict, dict):
+                    closes = quote_dict.get("close")
+
+    if not timestamps or closes is None:
         raise ValueError("No price data returned by Yahoo! Finance")
 
     index = pd.to_datetime(timestamps, unit="s")
