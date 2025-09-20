@@ -30,7 +30,7 @@ from fractalfinance.estimators import (
     StructureFunction,
     WTMM,
 )
-from fractalfinance.models import msm_fit
+from fractalfinance.models import HAR, msm_fit
 
 
 TRADING_DAYS = 252.0
@@ -147,6 +147,14 @@ class GARCHResult:
     forecast_daily: list[float]
 
 
+@dataclass(slots=True)
+class HARResult:
+    summary: dict[str, Any]
+    realised_variance: pd.Series
+    forecast_variance: list[float]
+    forecast_daily_vol: list[float]
+
+
 def fit_garch(
     returns: pd.Series,
     *,
@@ -188,6 +196,64 @@ def fit_garch(
     }
 
     return GARCHResult(summary, cond_vol, daily_forecast)
+
+
+def compute_realised_variance(returns: pd.Series) -> pd.Series:
+    """Return a daily realised-variance proxy from log-returns."""
+
+    rv = pd.Series(returns, dtype=float) ** 2
+    return rv.rename("realised_variance").dropna()
+
+
+def fit_har_realised_variance(
+    returns: pd.Series,
+    *,
+    periods_per_year: float,
+    lags: Sequence[int] = (1, 5, 22),
+    horizon: int = 5,
+) -> HARResult:
+    """Fit a HAR-RV model on realised variance and summarise forecasts."""
+
+    rv = compute_realised_variance(returns)
+    if rv.empty:
+        raise ValueError("Realised variance series is empty; cannot fit HAR model")
+
+    har = HAR(lags=lags)
+    design = har._design_matrix(rv).dropna()
+    if design.empty:
+        raise ValueError(
+            "Insufficient observations for HAR lags; provide ≥ max(lags)+1 returns"
+        )
+
+    fitted = har.fit(rv)
+    forecast_variance = [float(v) for v in fitted.forecast(h=horizon)]
+    forecast_daily_vol = [float(np.sqrt(v)) for v in forecast_variance]
+
+    last_idx = getattr(fitted._last_row_, "name", rv.index[-1])
+    try:
+        last_realised_var = float(rv.loc[last_idx])
+    except KeyError:
+        last_idx = rv.index[-1]
+        last_realised_var = float(rv.iloc[-1])
+    last_realised_vol = float(np.sqrt(last_realised_var))
+
+    params = fitted.params_
+    if params is None:
+        params = pd.Series(dtype=float)
+
+    summary = {
+        "lags": list(fitted.lags),
+        "params": {key: float(val) for key, val in params.items()},
+        "last_timestamp": last_idx.isoformat() if hasattr(last_idx, "isoformat") else last_idx,
+        "last_realised_vol_daily": last_realised_vol,
+        "last_realised_vol_annual": annualise(last_realised_vol, periods_per_year),
+        "forecast_daily_vol": forecast_daily_vol,
+        "forecast_annual_vol": [
+            annualise(v, periods_per_year) for v in forecast_daily_vol
+        ],
+    }
+
+    return HARResult(summary, rv, forecast_variance, forecast_daily_vol)
 
 
 def fit_msm(returns: pd.Series, *, states: int = 5) -> dict[str, Any]:
@@ -442,6 +508,58 @@ def plot_garch_overlay(
     return save_fig(fig, out_dir, filename)
 
 
+def _forecast_index(index: pd.DatetimeIndex, steps: int) -> pd.DatetimeIndex:
+    if index.size == 0:
+        raise ValueError("Cannot extend an empty index")
+    if index.size == 1:
+        freq = pd.Timedelta(days=1)
+    else:
+        freq = index[-1] - index[-2]
+        if freq <= pd.Timedelta(0):
+            freq = pd.Timedelta(days=1)
+    start = index[-1] + freq
+    return pd.date_range(start=start, periods=steps, freq=freq)
+
+
+def plot_har_forecast(
+    realised_variance: pd.Series,
+    forecast_daily_vol: Sequence[float],
+    *,
+    out_dir: Path,
+    filename: str,
+    title: str = "HAR-RV realised volatility & forecast",
+) -> str:
+    rv = pd.Series(realised_variance, dtype=float)
+    if rv.empty:
+        raise ValueError("Realised variance series is empty; nothing to plot")
+
+    idx = to_naive(rv.index)
+    realised_vol = np.sqrt(rv.to_numpy()) * 100
+
+    fig, ax = plt.subplots(figsize=(10, 5))
+    ax.plot(idx, realised_vol, color="#1f77b4", lw=1.2, label="Realised vol")
+
+    if forecast_daily_vol:
+        forecast_daily_vol = [float(v) for v in forecast_daily_vol]
+        future_idx = _forecast_index(idx, len(forecast_daily_vol))
+        forecast_vol = np.asarray(forecast_daily_vol) * 100
+        ax.plot(
+            future_idx,
+            forecast_vol,
+            color="#ff7f0e",
+            marker="o",
+            linestyle="--",
+            label="Forecast",
+        )
+        ax.axvline(idx[-1], color="grey", linestyle=":", alpha=0.6)
+
+    ax.set_ylabel("Volatility (%)")
+    ax.set_title(title)
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+    return save_fig(fig, out_dir, filename)
+
+
 def plot_mfdfa_spectrum(
     mfdfa_res: dict[str, np.ndarray],
     *,
@@ -668,6 +786,7 @@ def infer_periods_per_year(index: pd.Index) -> float:
 __all__ = [
     "TRADING_DAYS",
     "GARCHResult",
+    "HARResult",
     "FractalResult",
     "ensure_dir",
     "save_fig",
@@ -678,6 +797,8 @@ __all__ = [
     "h_at",
     "summarise_prices",
     "fit_garch",
+    "compute_realised_variance",
+    "fit_har_realised_variance",
     "fit_msm",
     "compute_fractal_metrics",
     "compute_windowed_fractal_statistics",
@@ -685,6 +806,7 @@ __all__ = [
     "plot_price_series",
     "plot_returns_histogram",
     "plot_garch_overlay",
+    "plot_har_forecast",
     "plot_mfdfa_spectrum",
     "plot_rs_scaling",
     "plot_dfa_fluctuation",

@@ -19,10 +19,12 @@ from fractalfinance.analysis.common import (
 
     ensure_dir,
     fit_garch,
+    fit_har_realised_variance,
     fit_msm,
     infer_periods_per_year,
     plot_dfa_fluctuation,
     plot_garch_overlay,
+    plot_har_forecast,
     plot_mfdfa_spectrum,
     plot_price_series,
     plot_rs_scaling,
@@ -400,6 +402,8 @@ def run_scale(
 
     garch_result = None
     garch_error = None
+    har_result = None
+    har_error = None
     if returns_count < 10:
         garch_error = (
             f"Insufficient return observations for GARCH (have {returns_count}, need ≥10)."
@@ -411,6 +415,22 @@ def run_scale(
         except Exception as exc:  # pragma: no cover - estimator edge cases
             garch_error = str(exc)
             warnings.append(f"GARCH fit failed: {exc}")
+
+    har_min_obs = 30
+    if returns_count < har_min_obs:
+        har_error = (
+            f"Insufficient return observations for HAR (have {returns_count}, need ≥{har_min_obs})."
+        )
+        warnings.append(har_error)
+    else:
+        try:
+            har_result = fit_har_realised_variance(
+                returns,
+                periods_per_year=periods_per_year,
+            )
+        except Exception as exc:  # pragma: no cover - estimator edge cases
+            har_error = str(exc)
+            warnings.append(f"HAR fit failed: {exc}")
 
     msm_summary: dict[str, object] | None = None
     msm_error = None
@@ -485,6 +505,15 @@ def run_scale(
             filename=f"{slug}_garch.png",
         )
         outputs["garch"] = garch_path
+    if har_result is not None:
+        har_path = plot_har_forecast(
+            har_result.realised_variance,
+            har_result.forecast_daily_vol,
+            out_dir=scale_dir,
+            filename=f"{slug}_har.png",
+            title=f"{label} HAR-RV realised volatility",
+        )
+        outputs["har"] = har_path
     if fractal_result is not None:
         mfdfa_path = plot_mfdfa_spectrum(
             fractal_result.mfdfa,
@@ -556,6 +585,17 @@ def run_scale(
     if garch_summary is None:
         outputs.pop("garch", None)
 
+    har_summary: dict[str, object] | None
+    if har_result is not None:
+        har_summary = har_result.summary
+    elif har_error is not None:
+        har_summary = {"error": har_error}
+    else:
+        har_summary = None
+
+    if har_summary is None:
+        outputs.pop("har", None)
+
     if msm_summary is None and msm_error is not None:
         msm_summary = {"error": msm_error}
 
@@ -576,6 +616,7 @@ def run_scale(
         "data_end": _serialize_timestamp(prices.index[-1]),
         **stats,
         "garch": garch_summary,
+        "har": har_summary,
         "msm": msm_summary,
         "fractal": fractal_summary,
         "fractal_windowed": fractal_windowed,
@@ -639,6 +680,7 @@ def run_multi_scale_analysis(
         fractal_info = summary.get("fractal") or {}
         windowed = summary.get("fractal_windowed") or {}
         garch_info = summary.get("garch") or {}
+        har_info = summary.get("har") or {}
         msm_info = summary.get("msm") or {}
 
         label = summary.get("label")
@@ -666,6 +708,14 @@ def run_multi_scale_analysis(
             "volatility": {
                 "garch_last_cond_vol_annual": garch_info.get(
                     "last_cond_vol_annual"
+                ),
+                "har_last_realised_vol_annual": har_info.get(
+                    "last_realised_vol_annual"
+                ),
+                "har_forecast_1d_annual": (
+                    (har_info.get("forecast_annual_vol") or [None])[0]
+                    if isinstance(har_info, dict)
+                    else None
                 ),
                 "msm_m_L": msm_info.get("m_L"),
                 "msm_m_H": msm_info.get("m_H"),
