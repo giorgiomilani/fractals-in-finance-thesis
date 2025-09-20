@@ -688,6 +688,7 @@ def plot_windowed_metric_distribution(
     return save_fig(fig, out_dir, filename)
 
 
+
 # ──────────────────────────────────────────────────────────────────────────────
 # timescale inference
 # ──────────────────────────────────────────────────────────────────────────────
@@ -744,6 +745,7 @@ __all__ = [
     "plot_structure_function_summary",
     "plot_wtmm_spectrum",
     "plot_windowed_metric_distribution",
+
     "infer_periods_per_year",
 ]
 
