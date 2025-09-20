@@ -29,6 +29,8 @@ from fractalfinance.analysis.common import (
     plot_returns_histogram,
     plot_structure_function_summary,
     plot_wtmm_spectrum,
+    plot_windowed_metric_distribution,
+
     summarise_prices,
 )
 from fractalfinance.gaf.dataset import GAFWindowDataset
@@ -445,6 +447,7 @@ def run_scale(
         returns,
         window=config.gaf.window,
         stride=config.gaf.stride,
+        return_samples=True,
     )
 
     fractal_windows_serialised: list[dict[str, object]] = []
@@ -529,6 +532,28 @@ def run_scale(
         out_dir=scale_dir,
         slug=slug,
     )
+
+    samples = fractal_windowed.pop("samples", {})
+    distribution_plots: dict[str, str] = {}
+    for metric_name, values in samples.items():
+        if not values:
+            continue
+        metric_slug = _slugify(metric_name)
+        try:
+            dist_path = plot_windowed_metric_distribution(
+                values,
+                metric=metric_name,
+                out_dir=scale_dir,
+                filename=f"{slug}_{metric_slug}_distribution.png",
+                title=f"{label} windowed {metric_name}",
+            )
+        except ValueError:
+            continue
+        outputs[f"fractal_windowed_{metric_slug}_distribution"] = dist_path
+        distribution_plots[metric_name] = dist_path
+
+    if distribution_plots:
+        fractal_windowed["distribution_plots"] = distribution_plots
 
     if gaf_summary.get("windows") is not None:
         fractal_windowed["expected_gaf_windows"] = int(gaf_summary["windows"])

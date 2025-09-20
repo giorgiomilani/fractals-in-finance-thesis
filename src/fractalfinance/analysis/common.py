@@ -287,6 +287,7 @@ def compute_windowed_fractal_statistics(
     window: int,
     stride: int,
     structure_from_levels: bool = False,
+    return_samples: bool = False,
 ) -> dict[str, Any]:
     """Compute fractal summaries on sliding windows aligned with GAF cubes."""
 
@@ -360,7 +361,7 @@ def compute_windowed_fractal_statistics(
         distribution = _describe_distribution(values)
         aggregates[key] = {"count": len(values), **distribution}
 
-    return {
+    result = {
         "window": int(window),
         "stride": int(stride),
         "total_windows": len(starts),
@@ -370,6 +371,11 @@ def compute_windowed_fractal_statistics(
         "windows": windows,
         "warnings": warnings,
     }
+
+    if return_samples:
+        result["samples"] = {key: list(values) for key, values in metric_values.items()}
+
+    return result
 
 
 
@@ -635,6 +641,54 @@ def plot_wtmm_spectrum(
     return save_fig(fig, out_dir, filename)
 
 
+def plot_windowed_metric_distribution(
+    values: Sequence[float],
+    *,
+    metric: str,
+    out_dir: Path,
+    filename: str,
+    title: str | None = None,
+) -> str:
+    """Render the empirical distribution (histogram + CDF) for ``values``."""
+
+    if not values:
+        raise ValueError("No windowed values provided for distribution plot")
+
+    arr = np.asarray(values, dtype=float)
+    arr = arr[np.isfinite(arr)]
+    if arr.size == 0:
+        raise ValueError("No finite windowed values available for plotting")
+
+    sorted_vals = np.sort(arr)
+    ecdf = np.arange(1, sorted_vals.size + 1) / float(sorted_vals.size)
+
+    if arr.size <= 1:
+        bins = 1
+        density = False
+    else:
+        bins = min(40, max(5, int(np.ceil(np.sqrt(arr.size)))))
+        density = True
+
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+    axes[0].hist(arr, bins=bins, color="#1f77b4", alpha=0.75, density=density)
+    axes[0].set_xlabel(metric)
+    axes[0].set_ylabel("Density" if density else "Count")
+    axes[0].set_title("Histogram")
+    axes[0].grid(True, alpha=0.3)
+
+    axes[1].plot(sorted_vals, ecdf, color="#d62728", lw=1.5)
+    axes[1].set_xlabel(metric)
+    axes[1].set_ylabel("F(x)")
+    axes[1].set_ylim(0.0, 1.05)
+    axes[1].set_title("Empirical CDF")
+    axes[1].grid(True, alpha=0.3)
+
+    fig.suptitle(title or f"Windowed distribution of {metric}")
+    fig.tight_layout(rect=(0, 0, 1, 0.95))
+    return save_fig(fig, out_dir, filename)
+
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # timescale inference
 # ──────────────────────────────────────────────────────────────────────────────
@@ -690,6 +744,8 @@ __all__ = [
     "plot_dfa_fluctuation",
     "plot_structure_function_summary",
     "plot_wtmm_spectrum",
+    "plot_windowed_metric_distribution",
+
     "infer_periods_per_year",
 ]
 
