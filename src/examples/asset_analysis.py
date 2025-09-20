@@ -192,13 +192,15 @@ def run_asset_analysis(
 
 
 def _default_configs() -> list[AssetRunConfig]:
+    default_start = "1900-01-01"
+
     return [
         AssetRunConfig(
             key="sp500",
             symbol="^GSPC",
             label="S&P 500 Index",
             asset_type="equity_index",
-            start="2020-01-01",
+            start=default_start,
             annualisation_days=252.0,
             price_ylabel="Index level",
             output_subdir="sp500_daily",
@@ -212,7 +214,7 @@ def _default_configs() -> list[AssetRunConfig]:
             symbol="BTC-USD",
             label="Bitcoin / US Dollar",
             asset_type="crypto",
-            start="2020-01-01",
+            start=default_start,
             annualisation_days=365.0,
             price_ylabel="Price (USD)",
             output_subdir="bitcoin_daily",
@@ -226,7 +228,7 @@ def _default_configs() -> list[AssetRunConfig]:
             symbol="EURUSD=X",
             label="EUR/USD",
             asset_type="forex",
-            start="2020-01-01",
+            start=default_start,
             annualisation_days=260.0,
             price_ylabel="USD per EUR",
             output_subdir="fx_eurusd_daily",
@@ -240,7 +242,7 @@ def _default_configs() -> list[AssetRunConfig]:
             symbol="AAPL",
             label="Apple Inc.",
             asset_type="equity",
-            start="2020-01-01",
+            start=default_start,
             annualisation_days=252.0,
             price_ylabel="Price (USD)",
             output_subdir="apple_daily",
@@ -250,7 +252,7 @@ def _default_configs() -> list[AssetRunConfig]:
             symbol="TLT",
             label="iShares 20+ Year Treasury Bond ETF",
             asset_type="bond",
-            start="2020-01-01",
+            start=default_start,
             annualisation_days=252.0,
             price_ylabel="Price (USD)",
             output_subdir="bond_tlt_daily",

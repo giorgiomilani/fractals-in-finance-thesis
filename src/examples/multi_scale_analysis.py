@@ -39,12 +39,12 @@ from fractalfinance.io import load_yahoo
 from fractalfinance.plotting import DEFAULT_OUTPUT_DIR
 
 
-def _slugify(value: str) -> str:
+def slugify(value: str) -> str:
     slug = re.sub(r"[^0-9a-zA-Z]+", "_", value).strip("_")
     return slug.lower() or "scale"
 
 
-def _median_spacing_seconds(index: pd.Index) -> float | None:
+def median_spacing_seconds(index: pd.Index) -> float | None:
     idx = pd.DatetimeIndex(index).sort_values()
     if idx.size < 2:
         return None
@@ -54,7 +54,7 @@ def _median_spacing_seconds(index: pd.Index) -> float | None:
     return float(np.median(diffs))
 
 
-def _format_duration(seconds: float | None) -> str | None:
+def format_duration(seconds: float | None) -> str | None:
     if seconds is None:
         return None
     if seconds <= 0:
@@ -84,6 +84,9 @@ class GAFScaleConfig:
     resample: str = "paa"
     to_uint8: bool = False
     image_size: int | None = None
+    label_mode: str = "quantile"
+    quantile_bins: int = 3
+    neutral_threshold: float = 0.0
 
 
 @dataclass(slots=True)
@@ -111,7 +114,9 @@ def default_scale_configs() -> list[ScaleConfig]:
                 window=780,  # roughly two trading days of minute bars
                 stride=60,
                 resolutions=(512, 256),
-                image_size=256,
+                image_size=512,
+                label_mode="sign",
+                neutral_threshold=1e-06,
             ),
         ),
         ScaleConfig(
@@ -121,7 +126,9 @@ def default_scale_configs() -> list[ScaleConfig]:
                 window=720,
                 stride=48,
                 resolutions=(512, 256),
-                image_size=240,
+                image_size=512,
+                label_mode="sign",
+                neutral_threshold=1e-06,
             ),
         ),
         ScaleConfig(
@@ -131,7 +138,9 @@ def default_scale_configs() -> list[ScaleConfig]:
                 window=672,
                 stride=32,
                 resolutions=(384, 256),
-                image_size=224,
+                image_size=512,
+                label_mode="sign",
+                neutral_threshold=1e-06,
             ),
         ),
         ScaleConfig(
@@ -141,7 +150,9 @@ def default_scale_configs() -> list[ScaleConfig]:
                 window=600,
                 stride=24,
                 resolutions=(384, 256),
-                image_size=224,
+                image_size=512,
+                label_mode="sign",
+                neutral_threshold=1e-06,
             ),
         ),
         ScaleConfig(
@@ -151,7 +162,9 @@ def default_scale_configs() -> list[ScaleConfig]:
                 window=512,
                 stride=16,
                 resolutions=(512, 256, 128),
-                image_size=256,
+                image_size=512,
+                label_mode="sign",
+                neutral_threshold=1e-06,
             ),
         ),
         ScaleConfig(
@@ -161,7 +174,9 @@ def default_scale_configs() -> list[ScaleConfig]:
                 window=260,
                 stride=8,
                 resolutions=(256, 128, 64),
-                image_size=192,
+                image_size=256,
+                label_mode="sign",
+                neutral_threshold=1e-06,
             ),
         ),
         ScaleConfig(
@@ -171,7 +186,9 @@ def default_scale_configs() -> list[ScaleConfig]:
                 window=180,
                 stride=3,
                 resolutions=(180, 120, 60),
-                image_size=160,
+                image_size=256,
+                label_mode="sign",
+                neutral_threshold=1e-06,
             ),
         ),
     ]
@@ -184,7 +201,7 @@ def _normalise_counts(counts: dict[str, int]) -> dict[str, float]:
     return {key: value / total for key, value in counts.items()}
 
 
-def _gaf_image_evaluation(
+def evaluate_gaf_image(
     *,
     config: GAFScaleConfig,
     actual_size: int,
@@ -237,7 +254,7 @@ def _gaf_image_evaluation(
     return evaluation
 
 
-def _gaf_summary(
+def gaf_summary(
     returns: pd.Series,
     *,
     config: GAFScaleConfig,
@@ -256,6 +273,9 @@ def _gaf_summary(
         resample=config.resample,
         to_uint8=config.to_uint8,
         image_size=config.image_size,
+        label_mode=config.label_mode,
+        quantile_bins=config.quantile_bins,
+        neutral_threshold=config.neutral_threshold,
     )
     windows = len(dataset)
     label_distribution: dict[str, int] = {}
@@ -294,7 +314,7 @@ def _gaf_summary(
 
         sample_images["first_window"] = str(image_path)
 
-    median_spacing = _median_spacing_seconds(returns.index)
+    median_spacing = median_spacing_seconds(returns.index)
     if median_spacing is None:
         window_span = None
     else:
@@ -312,19 +332,22 @@ def _gaf_summary(
         "label_distribution": label_distribution,
         "label_distribution_share": _normalise_counts(label_distribution),
         "window_span_seconds": window_span,
-        "window_span_pretty": _format_duration(window_span),
+        "window_span_pretty": format_duration(window_span),
         "sample_images": sample_images,
-        "image_evaluation": _gaf_image_evaluation(
+        "image_evaluation": evaluate_gaf_image(
             config=config,
             actual_size=actual_image_size,
             window=config.window,
         ),
+        "label_mode": config.label_mode,
+        "quantile_bins": int(config.quantile_bins),
+        "neutral_threshold": float(config.neutral_threshold),
 
     }
     return summary, warnings
 
 
-def _serialize_timestamp(ts: pd.Timestamp) -> str:
+def serialize_timestamp(ts: pd.Timestamp) -> str:
     ts = pd.Timestamp(ts)
     if ts.tz is None:
         ts = ts.tz_localize("UTC")
@@ -347,7 +370,7 @@ def run_scale(
     """Execute the full pipeline for a single ``interval``."""
 
     label = config.label
-    slug = _slugify(f"{symbol}_{label}")
+    slug = slugify(f"{symbol}_{label}")
     scale_dir = ensure_dir(output_dir / slug)
 
     try:
@@ -456,9 +479,9 @@ def run_scale(
         end_ts = record.get("end")
         serialised_record = dict(record)
         if start_ts is not None:
-            serialised_record["start"] = _serialize_timestamp(start_ts)
+            serialised_record["start"] = serialize_timestamp(start_ts)
         if end_ts is not None:
-            serialised_record["end"] = _serialize_timestamp(end_ts)
+            serialised_record["end"] = serialize_timestamp(end_ts)
         fractal_windows_serialised.append(serialised_record)
     fractal_windowed["windows"] = fractal_windows_serialised
 
@@ -524,9 +547,7 @@ def run_scale(
             title=f"{label} WTMM spectrum",
         )
         outputs["wtmm"] = wtmm_path
-
-
-    gaf_summary, gaf_warnings = _gaf_summary(
+    gaf_details, gaf_warnings = gaf_summary(
         returns,
         config=config.gaf,
         out_dir=scale_dir,
@@ -538,7 +559,7 @@ def run_scale(
     for metric_name, values in samples.items():
         if not values:
             continue
-        metric_slug = _slugify(metric_name)
+        metric_slug = slugify(metric_name)
         try:
             dist_path = plot_windowed_metric_distribution(
                 values,
@@ -555,18 +576,18 @@ def run_scale(
     if distribution_plots:
         fractal_windowed["distribution_plots"] = distribution_plots
 
-    if gaf_summary.get("windows") is not None:
-        fractal_windowed["expected_gaf_windows"] = int(gaf_summary["windows"])
+    if gaf_details.get("windows") is not None:
+        fractal_windowed["expected_gaf_windows"] = int(gaf_details["windows"])
 
     if (
         fractal_windowed.get("processed_windows")
-        and gaf_summary.get("windows") is not None
-        and fractal_windowed["processed_windows"] != gaf_summary["windows"]
+        and gaf_details.get("windows") is not None
+        and fractal_windowed["processed_windows"] != gaf_details["windows"]
     ):
         diff_warn = (
             "Windowed fractal metrics processed"
             f" {fractal_windowed['processed_windows']} samples,"
-            f" but GAF generated {gaf_summary['windows']} windows."
+            f" but GAF generated {gaf_details['windows']} windows."
         )
         fractal_windowed.setdefault("warnings", []).append(diff_warn)
 
@@ -597,15 +618,15 @@ def run_scale(
         "label": label,
         "interval": config.interval,
         "periods_per_year": periods_per_year,
-        "data_start": _serialize_timestamp(prices.index[0]),
-        "data_end": _serialize_timestamp(prices.index[-1]),
+        "data_start": serialize_timestamp(prices.index[0]),
+        "data_end": serialize_timestamp(prices.index[-1]),
         **stats,
         "garch": garch_summary,
         "msm": msm_summary,
         "fractal": fractal_summary,
         "fractal_windowed": fractal_windowed,
-        "gaf": gaf_summary,
-        "outputs": {**outputs, **gaf_summary.get("sample_images", {})},
+        "gaf": gaf_details,
+        "outputs": {**outputs, **gaf_details.get("sample_images", {})},
     }
 
     if gaf_warnings:
@@ -650,7 +671,7 @@ def run_multi_scale_analysis(
             max_retries=max_retries,
             retry_delay=retry_delay,
         )
-        slug = _slugify(f"{symbol}_{cfg.label}")
+        slug = slugify(f"{symbol}_{cfg.label}")
         results[slug] = summary
 
     comparison_rows: list[dict[str, object]] = []
@@ -680,6 +701,9 @@ def run_multi_scale_analysis(
             "gaf_label_distribution_share": gaf_info.get(
                 "label_distribution_share"
             ),
+            "gaf_label_mode": gaf_info.get("label_mode"),
+            "gaf_neutral_threshold": gaf_info.get("neutral_threshold"),
+            "gaf_quantile_bins": gaf_info.get("quantile_bins"),
             "fractal_metrics": {
                 "DFA_H": fractal_info.get("DFA_H"),
                 "RS_H": fractal_info.get("RS_H"),
@@ -717,7 +741,7 @@ def run_multi_scale_analysis(
         "comparison": comparison,
     }
 
-    master_path = output_dir / f"{_slugify(symbol)}_multi_scale_summary.json"
+    master_path = output_dir / f"{slugify(symbol)}_multi_scale_summary.json"
     with open(master_path, "w", encoding="utf-8") as fh:
         json.dump(payload, fh, indent=2)
 

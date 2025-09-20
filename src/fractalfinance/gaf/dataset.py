@@ -28,6 +28,9 @@ class GAFWindowDataset(Dataset):
         image_size: int | None = None,
         labels: np.ndarray | None = None,
         transform: Callable[[torch.Tensor], torch.Tensor] | None = None,
+        label_mode: str = "quantile",
+        quantile_bins: int = 3,
+        neutral_threshold: float = 0.0,
     ) -> None:
         self.series = np.asarray(series, dtype=float)
         self.win = int(win)
@@ -43,6 +46,9 @@ class GAFWindowDataset(Dataset):
         self.to_uint8 = bool(to_uint8)
         self.image_size = int(image_size) if image_size is not None else None
         self.transform = transform
+        self.label_mode = label_mode.lower()
+        self.quantile_bins = int(quantile_bins)
+        self.neutral_threshold = float(abs(neutral_threshold))
         if self.win <= 0 or self.stride <= 0:
             raise ValueError("win and stride must be positive integers")
 
@@ -102,15 +108,38 @@ class GAFWindowDataset(Dataset):
         if np.allclose(window_returns, window_returns[0]):
             return np.zeros_like(window_returns, dtype=int)
 
-        q1, q2 = np.quantile(window_returns, [1 / 3, 2 / 3])
-        if np.isclose(q1, q2):
-            labels = np.where(
-                window_returns < 0,
-                0,
-                np.where(window_returns > 0, 2, 1),
-            )
-            return labels.astype(int)
+        if self.label_mode == "sign":
+            return self._sign_labels(window_returns)
 
-        bins = [-np.inf, q1, q2, np.inf]
-        labels = np.digitize(window_returns, bins) - 1
+        if self.label_mode != "quantile":
+            raise ValueError(
+                "label_mode must be either 'quantile' or 'sign'"
+            )
+
+        bins = max(int(self.quantile_bins), 1)
+        if bins <= 1:
+            return np.zeros_like(window_returns, dtype=int)
+
+        quantile_levels = np.linspace(0.0, 1.0, bins + 1)[1:-1]
+        quantiles = np.quantile(window_returns, quantile_levels)
+
+        if np.allclose(quantiles, quantiles[0]):
+            return self._sign_labels(window_returns)
+
+        edges = np.concatenate(([-np.inf], quantiles, [np.inf]))
+        labels = np.digitize(window_returns, edges) - 1
         return labels.astype(int)
+
+    def _sign_labels(self, window_returns: np.ndarray) -> np.ndarray:
+        threshold = self.neutral_threshold
+        labels = np.full(window_returns.shape, 1, dtype=int)
+        if threshold <= 0.0:
+            labels[window_returns < 0.0] = 0
+            labels[window_returns > 0.0] = 2
+            return labels
+
+        neg_mask = window_returns < -threshold
+        pos_mask = window_returns > threshold
+        labels[neg_mask] = 0
+        labels[pos_mask] = 2
+        return labels
