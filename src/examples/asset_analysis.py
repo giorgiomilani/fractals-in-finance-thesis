@@ -23,9 +23,11 @@ from fractalfinance.analysis.common import (
     compute_fractal_metrics,
     ensure_dir,
     fit_garch,
+    fit_har_realised_variance,
     fit_msm,
     plot_dfa_fluctuation,
     plot_garch_overlay,
+    plot_har_forecast,
     plot_mfdfa_spectrum,
     plot_price_series,
     plot_rs_scaling,
@@ -107,6 +109,10 @@ def run_asset_analysis(
         periods_per_year=config.annualisation_days,
     )
     garch = fit_garch(returns, periods_per_year=config.annualisation_days)
+    har = fit_har_realised_variance(
+        returns,
+        periods_per_year=config.annualisation_days,
+    )
     msm_summary = fit_msm(returns)
     fractal = compute_fractal_metrics(prices, returns)
 
@@ -131,6 +137,12 @@ def run_asset_analysis(
         garch.conditional_volatility,
         out_dir=output_dir,
         filename=f"{slug}_garch.png",
+    )
+    har_plot = plot_har_forecast(
+        har.realised_variance,
+        har.forecast_daily_vol,
+        out_dir=output_dir,
+        filename=f"{slug}_har.png",
     )
     mfdfa_plot = plot_mfdfa_spectrum(
         fractal.mfdfa,
@@ -162,6 +174,7 @@ def run_asset_analysis(
         "price_path": price_path,
         "returns": returns_plot,
         "garch": garch_plot,
+        "har": har_plot,
         "mfdfa": mfdfa_plot,
         "rs": rs_plot,
         "dfa": dfa_plot,
@@ -177,6 +190,7 @@ def run_asset_analysis(
         **stats,
         "annualisation_days": config.annualisation_days,
         "garch": garch.summary,
+        "har": har.summary,
         "msm": msm_summary,
         "fractal": fractal.summary,
         "outputs": outputs,

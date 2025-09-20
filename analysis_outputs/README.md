@@ -21,6 +21,13 @@ rapidly during crises and drift lower in calmer regimes, demonstrating
 volatility clustering. Severe spikes in the grey bars without corresponding
 volatility response often flag data problems.
 
+## HAR Realised Volatility Forecast
+Daily realised variance (squared log-returns) feeds the HAR-RV benchmark. The
+blue line tracks realised volatility while the orange dashed extension projects
+the next few days via the fitted HAR coefficients. Forecasts that sit well above
+recent realised levels signal a volatility regime change; flat forecasts imply
+mean reversion toward the recent range.
+
 ## Multifractal Detrended Fluctuation Analysis (MFDFA)
 The singularity spectrum \(f(\alpha)\) summarises the strength of
 multifractality. A narrow, peaked curve implies near-monofractal behaviour,

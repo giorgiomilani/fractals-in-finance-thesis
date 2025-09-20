@@ -39,6 +39,9 @@ def test_run_scale_handles_short_series(monkeypatch, tmp_path, count):
     assert "garch" not in result["outputs"]
     assert isinstance(result.get("garch"), dict)
     assert "error" in result["garch"]
+    assert "har" not in result["outputs"]
+    assert isinstance(result.get("har"), dict)
+    assert "error" in result["har"]
     summary_path = Path(result["summary_path"])
     assert summary_path.exists()
     for key in ("price", "returns"):
