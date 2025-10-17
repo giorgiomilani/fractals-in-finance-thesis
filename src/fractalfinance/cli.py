@@ -156,7 +156,7 @@ def multi_asset_cmd(
         "S&P 500 Index", help="Display label for the equity index leg.",
     ),
     sp500_start: str = typer.Option(
-        "2020-01-01", help="Start date for the equity index run (YYYY-MM-DD).",
+        "1900-01-01", help="Start date for the equity index run (YYYY-MM-DD).",
     ),
     sp500_end: Optional[str] = typer.Option(
         None, help="Optional end date for the equity index run (YYYY-MM-DD).",
@@ -165,7 +165,7 @@ def multi_asset_cmd(
         "BTC-USD", help="Yahoo Finance ticker for the Bitcoin pair."
     ),
     bitcoin_start: str = typer.Option(
-        "2020-01-01", help="Start date for the Bitcoin run (YYYY-MM-DD)."
+        "1900-01-01", help="Start date for the Bitcoin run (YYYY-MM-DD)."
     ),
     bitcoin_end: Optional[str] = typer.Option(
         None, help="Optional end date for the Bitcoin run (YYYY-MM-DD)."
@@ -177,13 +177,13 @@ def multi_asset_cmd(
         "EUR/USD", help="Display label for the FX pair."
     ),
     forex_start: str = typer.Option(
-        "2020-01-01", help="Start date for the FX run (YYYY-MM-DD)."
+        "1900-01-01", help="Start date for the FX run (YYYY-MM-DD)."
     ),
     forex_end: Optional[str] = typer.Option(
         None, help="Optional end date for the FX run (YYYY-MM-DD)."
     ),
     apple_start: str = typer.Option(
-        "2020-01-01", help="Start date for the Apple run (YYYY-MM-DD)."
+        "1900-01-01", help="Start date for the Apple run (YYYY-MM-DD)."
     ),
     apple_end: Optional[str] = typer.Option(
         None, help="Optional end date for the Apple run (YYYY-MM-DD)."
@@ -196,7 +196,7 @@ def multi_asset_cmd(
         help="Display label for the long-term bond instrument.",
     ),
     bond_start: str = typer.Option(
-        "2020-01-01", help="Start date for the bond run (YYYY-MM-DD)."
+        "1900-01-01", help="Start date for the bond run (YYYY-MM-DD)."
     ),
     bond_end: Optional[str] = typer.Option(
         None, help="Optional end date for the bond run (YYYY-MM-DD)."
@@ -344,6 +344,93 @@ def multi_scale_cmd(
     if show_summary:
         typer.echo(json.dumps(result, indent=2))
 
+
+@examples_app.command("multi-asset-gaf")
+def multi_asset_gaf_cmd(
+    base_output_subdir: str = typer.Option(
+        "multi_asset_gaf",
+        help="Root folder under analysis_outputs to store multi-asset GAF runs.",
+    ),
+    include_intraday: bool = typer.Option(
+        True, help="Include minute/hourly intervals when generating GAF cubes."
+    ),
+    show_summary: bool = typer.Option(
+        False, help="Print the aggregated JSON summary after finishing the run."
+    ),
+    similarity_permutations: int = typer.Option(
+        200,
+        help="Number of permutations for cross-scale cosine similarity significance tests.",
+    ),
+    similarity_random_seed: int = typer.Option(
+        1234,
+        help="Random seed used when shuffling embeddings for permutation tests.",
+    ),
+    sp500_symbol: str = typer.Option("^GSPC", help="Yahoo Finance ticker for the equity leg."),
+    sp500_start: str = typer.Option("1900-01-01", help="Start date for the equity leg."),
+    sp500_end: Optional[str] = typer.Option(None, help="Optional end date for the equity leg."),
+    bitcoin_symbol: str = typer.Option("BTC-USD", help="Yahoo Finance ticker for the Bitcoin leg."),
+    bitcoin_start: str = typer.Option("1900-01-01", help="Start date for the Bitcoin leg."),
+    bitcoin_end: Optional[str] = typer.Option(None, help="Optional end date for the Bitcoin leg."),
+    forex_symbol: str = typer.Option("EURUSD=X", help="Yahoo Finance ticker for the FX leg."),
+    forex_start: str = typer.Option("1900-01-01", help="Start date for the FX leg."),
+    forex_end: Optional[str] = typer.Option(None, help="Optional end date for the FX leg."),
+    apple_symbol: str = typer.Option("AAPL", help="Yahoo Finance ticker for the single-stock leg."),
+    apple_start: str = typer.Option("1900-01-01", help="Start date for the single-stock leg."),
+    apple_end: Optional[str] = typer.Option(None, help="Optional end date for the single-stock leg."),
+    bond_symbol: str = typer.Option("TLT", help="Yahoo Finance ticker for the bond proxy."),
+    bond_start: str = typer.Option("1900-01-01", help="Start date for the bond proxy."),
+    bond_end: Optional[str] = typer.Option(None, help="Optional end date for the bond proxy."),
+) -> None:
+    """Run the multi-asset GAF-only workflow across all default instruments."""
+
+    _ensure_experiments_on_path()
+    from examples import multi_scale_gaf
+
+    assets = [
+        multi_scale_gaf.AssetConfig(
+            key="sp500", symbol=sp500_symbol, start=sp500_start, end=sp500_end
+        ),
+        multi_scale_gaf.AssetConfig(
+            key="bitcoin",
+            symbol=bitcoin_symbol,
+            start=bitcoin_start,
+            end=bitcoin_end,
+        ),
+        multi_scale_gaf.AssetConfig(
+            key="forex", symbol=forex_symbol, start=forex_start, end=forex_end
+        ),
+        multi_scale_gaf.AssetConfig(
+            key="apple", symbol=apple_symbol, start=apple_start, end=apple_end
+        ),
+        multi_scale_gaf.AssetConfig(
+            key="bond", symbol=bond_symbol, start=bond_start, end=bond_end
+        ),
+    ]
+
+    overview = multi_scale_gaf.run_multi_asset_gaf(
+        assets,
+        base_output_subdir=base_output_subdir,
+        include_intraday=include_intraday,
+        similarity_permutations=similarity_permutations,
+        similarity_random_seed=similarity_random_seed,
+    )
+
+    summary_path = overview.get("summary_path")
+    if summary_path:
+        typer.echo(f"Multi-asset GAF summary written to {summary_path}")
+
+    for asset_key, result in overview.get("results", {}).items():
+        if not isinstance(result, dict):
+            continue
+        asset_summary = result.get("summary_path")
+        if asset_summary:
+            typer.echo(f"{asset_key}: summary at {asset_summary}")
+        recs = result.get("image_recommendations") or []
+        if recs:
+            typer.echo(f"  {asset_key} image recommendations: {len(recs)} warnings")
+
+    if show_summary:
+        typer.echo(json.dumps(overview, indent=2))
 
 app.add_typer(examples_app, name="examples")
 

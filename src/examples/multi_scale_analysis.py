@@ -12,6 +12,7 @@ from typing import Sequence
 
 import numpy as np
 import pandas as pd
+import torch
 
 from fractalfinance.analysis.common import (
     compute_fractal_metrics,
@@ -39,12 +40,12 @@ from fractalfinance.io import load_yahoo
 from fractalfinance.plotting import DEFAULT_OUTPUT_DIR
 
 
-def _slugify(value: str) -> str:
+def slugify(value: str) -> str:
     slug = re.sub(r"[^0-9a-zA-Z]+", "_", value).strip("_")
     return slug.lower() or "scale"
 
 
-def _median_spacing_seconds(index: pd.Index) -> float | None:
+def median_spacing_seconds(index: pd.Index) -> float | None:
     idx = pd.DatetimeIndex(index).sort_values()
     if idx.size < 2:
         return None
@@ -54,7 +55,7 @@ def _median_spacing_seconds(index: pd.Index) -> float | None:
     return float(np.median(diffs))
 
 
-def _format_duration(seconds: float | None) -> str | None:
+def format_duration(seconds: float | None) -> str | None:
     if seconds is None:
         return None
     if seconds <= 0:
@@ -71,6 +72,11 @@ def _format_duration(seconds: float | None) -> str | None:
     return f"{seconds:.0f} seconds"
 
 
+MAX_WINDOWS_FOR_GAF_METRICS = 256
+PCA_EMBEDDING_DIMENSION = 16
+BOX_COUNT_THRESHOLDS = (0.2, 0.4, 0.6, 0.8)
+
+
 @dataclass(slots=True)
 class GAFScaleConfig:
     """Parameters used to generate GAF cubes for a specific timescale."""
@@ -84,6 +90,9 @@ class GAFScaleConfig:
     resample: str = "paa"
     to_uint8: bool = False
     image_size: int | None = None
+    label_mode: str = "quantile"
+    quantile_bins: int = 3
+    neutral_threshold: float = 0.0
 
 
 @dataclass(slots=True)
@@ -111,7 +120,9 @@ def default_scale_configs() -> list[ScaleConfig]:
                 window=780,  # roughly two trading days of minute bars
                 stride=60,
                 resolutions=(512, 256),
-                image_size=256,
+                image_size=512,
+                label_mode="sign",
+                neutral_threshold=1e-06,
             ),
         ),
         ScaleConfig(
@@ -121,7 +132,9 @@ def default_scale_configs() -> list[ScaleConfig]:
                 window=720,
                 stride=48,
                 resolutions=(512, 256),
-                image_size=240,
+                image_size=512,
+                label_mode="sign",
+                neutral_threshold=1e-06,
             ),
         ),
         ScaleConfig(
@@ -131,7 +144,9 @@ def default_scale_configs() -> list[ScaleConfig]:
                 window=672,
                 stride=32,
                 resolutions=(384, 256),
-                image_size=224,
+                image_size=512,
+                label_mode="sign",
+                neutral_threshold=1e-06,
             ),
         ),
         ScaleConfig(
@@ -141,7 +156,9 @@ def default_scale_configs() -> list[ScaleConfig]:
                 window=600,
                 stride=24,
                 resolutions=(384, 256),
-                image_size=224,
+                image_size=512,
+                label_mode="sign",
+                neutral_threshold=1e-06,
             ),
         ),
         ScaleConfig(
@@ -151,7 +168,9 @@ def default_scale_configs() -> list[ScaleConfig]:
                 window=512,
                 stride=16,
                 resolutions=(512, 256, 128),
-                image_size=256,
+                image_size=512,
+                label_mode="sign",
+                neutral_threshold=1e-06,
             ),
         ),
         ScaleConfig(
@@ -161,7 +180,9 @@ def default_scale_configs() -> list[ScaleConfig]:
                 window=260,
                 stride=8,
                 resolutions=(256, 128, 64),
-                image_size=192,
+                image_size=256,
+                label_mode="sign",
+                neutral_threshold=1e-06,
             ),
         ),
         ScaleConfig(
@@ -171,7 +192,9 @@ def default_scale_configs() -> list[ScaleConfig]:
                 window=180,
                 stride=3,
                 resolutions=(180, 120, 60),
-                image_size=160,
+                image_size=256,
+                label_mode="sign",
+                neutral_threshold=1e-06,
             ),
         ),
     ]
@@ -184,7 +207,164 @@ def _normalise_counts(counts: dict[str, int]) -> dict[str, float]:
     return {key: value / total for key, value in counts.items()}
 
 
-def _gaf_image_evaluation(
+def _select_sample_indices(total: int, limit: int = MAX_WINDOWS_FOR_GAF_METRICS) -> list[int]:
+    if total <= 0:
+        return []
+    limit = max(int(limit), 1)
+    if total <= limit:
+        return list(range(total))
+    # ensure the first and last windows are included while spreading selections
+    linspace = np.linspace(0, total - 1, num=limit, dtype=int)
+    indices = sorted(set(int(idx) for idx in linspace))
+    if indices[0] != 0:
+        indices.insert(0, 0)
+    if indices[-1] != total - 1:
+        indices.append(total - 1)
+    return indices[:limit]
+
+
+def _prepare_cube_batch(dataset: GAFWindowDataset, indices: list[int]) -> np.ndarray:
+    cubes: list[np.ndarray] = []
+    for idx in indices:
+        cube, _ = dataset[idx]
+        cubes.append(cube.detach().cpu().numpy())
+    if not cubes:
+        return np.empty((0, 0, 0, 0), dtype=float)
+    return np.stack(cubes)
+
+
+def _compute_box_counts(binary: np.ndarray, box_size: int) -> int:
+    if box_size <= 0:
+        return 0
+    height, width = binary.shape
+    pad_h = (-height) % box_size
+    pad_w = (-width) % box_size
+    if pad_h or pad_w:
+        binary = np.pad(binary, ((0, pad_h), (0, pad_w)), mode="constant", constant_values=False)
+    reshaped = binary.reshape(binary.shape[0] // box_size, box_size, binary.shape[1] // box_size, box_size)
+    occupied = reshaped.any(axis=(1, 3))
+    return int(np.count_nonzero(occupied))
+
+
+def _box_sizes(image_size: int) -> list[int]:
+    if image_size <= 0:
+        return []
+    sizes: list[int] = []
+    max_power = int(math.log2(image_size)) if image_size > 0 else 0
+    for power in range(1, max_power + 1):
+        size = 2**power
+        if size <= image_size:
+            sizes.append(size)
+    if image_size not in sizes:
+        sizes.append(image_size)
+    return sorted(set(sizes))
+
+
+def _box_counting_dimension(image: np.ndarray, box_sizes: list[int]) -> float | None:
+    if not box_sizes:
+        return None
+    data = np.asarray(image, dtype=float)
+    data = np.nan_to_num(data, copy=False)
+    min_val = float(np.min(data))
+    max_val = float(np.max(data))
+    if math.isclose(max_val, min_val):
+        return None
+    norm = (data - min_val) / (max_val - min_val + 1e-12)
+    dims: list[float] = []
+    for threshold in BOX_COUNT_THRESHOLDS:
+        binary = norm >= threshold
+        counts: list[int] = []
+        sizes: list[int] = []
+        for box_size in box_sizes:
+            count = _compute_box_counts(binary, box_size)
+            if count > 0:
+                counts.append(count)
+                sizes.append(box_size)
+        if len(counts) < 2:
+            continue
+        inv_box = np.log(1.0 / np.array(sizes, dtype=float))
+        log_counts = np.log(np.array(counts, dtype=float))
+        slope, _ = np.polyfit(inv_box, log_counts, 1)
+        dims.append(float(slope))
+    if not dims:
+        return None
+    return float(np.mean(dims))
+
+
+def _aggregate_box_counting(cubes: np.ndarray) -> dict[str, object]:
+    if cubes.size == 0:
+        return {}
+    _, channels, height, width = cubes.shape
+    box_sizes = _box_sizes(int(height))
+    channel_metrics: list[dict[str, object]] = []
+    for channel in range(channels):
+        dimensions: list[float] = []
+        for cube in cubes:
+            dim = _box_counting_dimension(cube[channel], box_sizes)
+            if dim is not None and math.isfinite(dim):
+                dimensions.append(dim)
+        if not dimensions:
+            continue
+        channel_metrics.append(
+            {
+                "channel": int(channel),
+                "samples": len(dimensions),
+                "mean": float(np.mean(dimensions)),
+                "std": float(np.std(dimensions, ddof=0)),
+            }
+        )
+    if not channel_metrics:
+        return {}
+    return {
+        "thresholds": list(BOX_COUNT_THRESHOLDS),
+        "box_sizes": box_sizes,
+        "channel_metrics": channel_metrics,
+        "samples": int(cubes.shape[0]),
+    }
+
+
+def _compute_embeddings(
+    cubes: np.ndarray, target_dim: int = PCA_EMBEDDING_DIMENSION
+) -> tuple[np.ndarray, dict[str, object]]:
+    if cubes.size == 0:
+        return np.empty((0, 0), dtype=float), {}
+    samples = cubes.shape[0]
+    flattened = cubes.reshape(samples, -1)
+    if flattened.size == 0:
+        return np.empty((0, 0), dtype=float), {}
+    centered = flattened - flattened.mean(axis=0, keepdims=True)
+    dim = int(min(target_dim, samples, centered.shape[1]))
+    if dim <= 0:
+        return np.empty((0, 0), dtype=float), {}
+    tensor = torch.from_numpy(centered).float()
+    try:
+        _, singular, v = torch.pca_lowrank(tensor, q=dim, center=False)
+        embeddings = torch.matmul(tensor, v[:, :dim]).numpy()
+        singular_values = singular[:dim].numpy()
+    except RuntimeError:
+        u, singular_values, vh = np.linalg.svd(centered, full_matrices=False)
+        embeddings = (u[:, :dim] * singular_values[:dim]).astype(float)
+    centroid = embeddings.mean(axis=0)
+    info: dict[str, object] = {
+        "method": "pca_lowrank",
+        "target_dimension": target_dim,
+        "dimension": int(dim),
+        "samples": int(samples),
+        "centroid": centroid.tolist(),
+    }
+    if samples > 1:
+        total_var = float(np.sum(centered**2) / (samples - 1))
+        explained = (singular_values[:dim] ** 2) / max(samples - 1, 1)
+        if total_var > 0:
+            info["explained_variance_ratio"] = (explained / total_var).tolist()
+        else:
+            info["explained_variance_ratio"] = [0.0] * dim
+    else:
+        info["explained_variance_ratio"] = [0.0] * dim
+    return embeddings.astype(float), info
+
+
+def evaluate_gaf_image(
     *,
     config: GAFScaleConfig,
     actual_size: int,
@@ -237,7 +417,7 @@ def _gaf_image_evaluation(
     return evaluation
 
 
-def _gaf_summary(
+def gaf_summary(
     returns: pd.Series,
     *,
     config: GAFScaleConfig,
@@ -256,45 +436,77 @@ def _gaf_summary(
         resample=config.resample,
         to_uint8=config.to_uint8,
         image_size=config.image_size,
+        label_mode=config.label_mode,
+        quantile_bins=config.quantile_bins,
+        neutral_threshold=config.neutral_threshold,
     )
     windows = len(dataset)
     label_distribution: dict[str, int] = {}
     sample_images: dict[str, str] = {}
     warnings: list[str] = []
+    box_counting_info: dict[str, object] | None = None
+    embedding_info: dict[str, object] | None = None
 
     first_channels = 0
 
     actual_image_size = config.image_size or max(config.resolutions)
 
+    metric_sample_indices: list[int] = []
+    metric_sample_count = 0
 
     if windows == 0:
         warnings.append(
             "Insufficient samples to form a single GAF window at this scale."
         )
     else:
-        labels = []
-        for idx in range(windows):
-            _, label_tensor = dataset[idx]
-            labels.append(int(label_tensor.item()))
-        uniques, counts = np.unique(labels, return_counts=True)
+        labels_array = getattr(dataset, "labels", None)
+        if labels_array is None or len(labels_array) != windows:
+            labels_array = np.array([int(dataset[idx][1].item()) for idx in range(windows)])
+        else:
+            labels_array = np.asarray(labels_array, dtype=int)
+        uniques, counts = np.unique(labels_array, return_counts=True)
         label_distribution = {
             str(int(u)): int(c) for u, c in zip(uniques, counts, strict=False)
         }
-        cube, _ = dataset[0]
-        cube_np = cube.detach().cpu().numpy()
-        actual_image_size = int(cube_np.shape[-1])
-        first_channels = int(cube_np.shape[0])
+
+        metric_sample_indices = _select_sample_indices(windows)
+        metric_sample_count = len(metric_sample_indices)
+        sample_cubes = _prepare_cube_batch(dataset, metric_sample_indices)
+
+        if sample_cubes.size == 0:
+            cube, _ = dataset[0]
+            first_cube = cube.detach().cpu().numpy()
+        else:
+            first_cube = sample_cubes[0]
+            box_counting_info = _aggregate_box_counting(sample_cubes)
+            embeddings, embedding_meta = _compute_embeddings(sample_cubes)
+            if embeddings.size:
+                embedding_path = out_dir / f"{slug}_embeddings.npy"
+                np.save(embedding_path, embeddings)
+                embedding_meta.update(
+                    {
+                        "embedding_path": str(embedding_path),
+                        "sample_indices": [int(i) for i in metric_sample_indices],
+                    }
+                )
+                centroid = np.asarray(embedding_meta.get("centroid", []), dtype=float)
+                embedding_meta["centroid_norm"] = float(
+                    np.linalg.norm(centroid)
+                ) if centroid.size else 0.0
+                embedding_info = embedding_meta
+        actual_image_size = int(first_cube.shape[-1])
+        first_channels = int(first_cube.shape[0])
         image_path = out_dir / f"{slug}_gaf_sample.png"
         if first_channels >= 3:
             select = [0, 1, 2]
         else:
             select = [0]
-        save_gaf_png(cube_np, image_path, select_channels=select)
+        save_gaf_png(first_cube, image_path, select_channels=select)
         sample_images["first_window_channels"] = select
 
         sample_images["first_window"] = str(image_path)
 
-    median_spacing = _median_spacing_seconds(returns.index)
+    median_spacing = median_spacing_seconds(returns.index)
     if median_spacing is None:
         window_span = None
     else:
@@ -312,19 +524,30 @@ def _gaf_summary(
         "label_distribution": label_distribution,
         "label_distribution_share": _normalise_counts(label_distribution),
         "window_span_seconds": window_span,
-        "window_span_pretty": _format_duration(window_span),
+        "window_span_pretty": format_duration(window_span),
         "sample_images": sample_images,
-        "image_evaluation": _gaf_image_evaluation(
+        "image_evaluation": evaluate_gaf_image(
             config=config,
             actual_size=actual_image_size,
             window=config.window,
         ),
+        "label_mode": config.label_mode,
+        "quantile_bins": int(config.quantile_bins),
+        "neutral_threshold": float(config.neutral_threshold),
+        "metric_samples": {
+            "count": metric_sample_count,
+            "indices": [int(i) for i in metric_sample_indices],
+        },
 
     }
+    if box_counting_info:
+        summary["box_counting"] = box_counting_info
+    if embedding_info:
+        summary["embedding"] = embedding_info
     return summary, warnings
 
 
-def _serialize_timestamp(ts: pd.Timestamp) -> str:
+def serialize_timestamp(ts: pd.Timestamp) -> str:
     ts = pd.Timestamp(ts)
     if ts.tz is None:
         ts = ts.tz_localize("UTC")
@@ -347,7 +570,7 @@ def run_scale(
     """Execute the full pipeline for a single ``interval``."""
 
     label = config.label
-    slug = _slugify(f"{symbol}_{label}")
+    slug = slugify(f"{symbol}_{label}")
     scale_dir = ensure_dir(output_dir / slug)
 
     try:
@@ -456,9 +679,9 @@ def run_scale(
         end_ts = record.get("end")
         serialised_record = dict(record)
         if start_ts is not None:
-            serialised_record["start"] = _serialize_timestamp(start_ts)
+            serialised_record["start"] = serialize_timestamp(start_ts)
         if end_ts is not None:
-            serialised_record["end"] = _serialize_timestamp(end_ts)
+            serialised_record["end"] = serialize_timestamp(end_ts)
         fractal_windows_serialised.append(serialised_record)
     fractal_windowed["windows"] = fractal_windows_serialised
 
@@ -524,9 +747,7 @@ def run_scale(
             title=f"{label} WTMM spectrum",
         )
         outputs["wtmm"] = wtmm_path
-
-
-    gaf_summary, gaf_warnings = _gaf_summary(
+    gaf_details, gaf_warnings = gaf_summary(
         returns,
         config=config.gaf,
         out_dir=scale_dir,
@@ -538,7 +759,7 @@ def run_scale(
     for metric_name, values in samples.items():
         if not values:
             continue
-        metric_slug = _slugify(metric_name)
+        metric_slug = slugify(metric_name)
         try:
             dist_path = plot_windowed_metric_distribution(
                 values,
@@ -555,18 +776,18 @@ def run_scale(
     if distribution_plots:
         fractal_windowed["distribution_plots"] = distribution_plots
 
-    if gaf_summary.get("windows") is not None:
-        fractal_windowed["expected_gaf_windows"] = int(gaf_summary["windows"])
+    if gaf_details.get("windows") is not None:
+        fractal_windowed["expected_gaf_windows"] = int(gaf_details["windows"])
 
     if (
         fractal_windowed.get("processed_windows")
-        and gaf_summary.get("windows") is not None
-        and fractal_windowed["processed_windows"] != gaf_summary["windows"]
+        and gaf_details.get("windows") is not None
+        and fractal_windowed["processed_windows"] != gaf_details["windows"]
     ):
         diff_warn = (
             "Windowed fractal metrics processed"
             f" {fractal_windowed['processed_windows']} samples,"
-            f" but GAF generated {gaf_summary['windows']} windows."
+            f" but GAF generated {gaf_details['windows']} windows."
         )
         fractal_windowed.setdefault("warnings", []).append(diff_warn)
 
@@ -597,15 +818,15 @@ def run_scale(
         "label": label,
         "interval": config.interval,
         "periods_per_year": periods_per_year,
-        "data_start": _serialize_timestamp(prices.index[0]),
-        "data_end": _serialize_timestamp(prices.index[-1]),
+        "data_start": serialize_timestamp(prices.index[0]),
+        "data_end": serialize_timestamp(prices.index[-1]),
         **stats,
         "garch": garch_summary,
         "msm": msm_summary,
         "fractal": fractal_summary,
         "fractal_windowed": fractal_windowed,
-        "gaf": gaf_summary,
-        "outputs": {**outputs, **gaf_summary.get("sample_images", {})},
+        "gaf": gaf_details,
+        "outputs": {**outputs, **gaf_details.get("sample_images", {})},
     }
 
     if gaf_warnings:
@@ -650,7 +871,7 @@ def run_multi_scale_analysis(
             max_retries=max_retries,
             retry_delay=retry_delay,
         )
-        slug = _slugify(f"{symbol}_{cfg.label}")
+        slug = slugify(f"{symbol}_{cfg.label}")
         results[slug] = summary
 
     comparison_rows: list[dict[str, object]] = []
@@ -680,6 +901,9 @@ def run_multi_scale_analysis(
             "gaf_label_distribution_share": gaf_info.get(
                 "label_distribution_share"
             ),
+            "gaf_label_mode": gaf_info.get("label_mode"),
+            "gaf_neutral_threshold": gaf_info.get("neutral_threshold"),
+            "gaf_quantile_bins": gaf_info.get("quantile_bins"),
             "fractal_metrics": {
                 "DFA_H": fractal_info.get("DFA_H"),
                 "RS_H": fractal_info.get("RS_H"),
@@ -717,7 +941,7 @@ def run_multi_scale_analysis(
         "comparison": comparison,
     }
 
-    master_path = output_dir / f"{_slugify(symbol)}_multi_scale_summary.json"
+    master_path = output_dir / f"{slugify(symbol)}_multi_scale_summary.json"
     with open(master_path, "w", encoding="utf-8") as fh:
         json.dump(payload, fh, indent=2)
 

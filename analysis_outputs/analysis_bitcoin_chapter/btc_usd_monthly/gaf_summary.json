@@ -1,0 +1,50 @@
+{
+  "symbol": "BTC-USD",
+  "label": "Monthly",
+  "interval": "1mo",
+  "observations": 135,
+  "span": "2014-09-01 \u2192 2025-10-12",
+  "data_start": "2014-09-01T00:00:00+00:00",
+  "data_end": "2025-10-12T19:15:00+00:00",
+  "gaf": {
+    "window": 180,
+    "stride": 3,
+    "resolutions": [
+      180,
+      120,
+      60
+    ],
+    "image_size": 256,
+    "kinds": [
+      "gasf",
+      "gadf"
+    ],
+    "channels": 0,
+    "windows": 0,
+    "label_distribution": {},
+    "label_distribution_share": {},
+    "window_span_seconds": 482112000.0,
+    "window_span_pretty": "5580.0 days",
+    "sample_images": {},
+    "image_evaluation": {
+      "largest_resolution": 180,
+      "configured_image_size": 256,
+      "actual_image_size": 256,
+      "scale_ratio": 1.4222222222222223,
+      "points_per_pixel": 0.703125,
+      "status": "ok"
+    },
+    "label_mode": "sign",
+    "quantile_bins": 3,
+    "neutral_threshold": 1e-06,
+    "metric_samples": {
+      "count": 0,
+      "indices": []
+    }
+  },
+  "outputs": {},
+  "warnings": [
+    "Only 135 observations available; 183 recommended to populate 180-point windows.",
+    "Insufficient samples to form a single GAF window at this scale."
+  ]
+}
