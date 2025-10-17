@@ -1,0 +1,250 @@
+{
+  "symbol": "BTC-USD",
+  "label": "Weekly",
+  "interval": "1wk",
+  "observations": 579,
+  "span": "2014-09-15 \u2192 2025-10-12",
+  "data_start": "2014-09-15T00:00:00+00:00",
+  "data_end": "2025-10-12T19:15:00+00:00",
+  "gaf": {
+    "window": 260,
+    "stride": 8,
+    "resolutions": [
+      256,
+      128,
+      64
+    ],
+    "image_size": 256,
+    "kinds": [
+      "gasf",
+      "gadf"
+    ],
+    "channels": 6,
+    "windows": 41,
+    "label_distribution": {
+      "2": 41
+    },
+    "label_distribution_share": {
+      "2": 1.0
+    },
+    "window_span_seconds": 157248000.0,
+    "window_span_pretty": "1820.0 days",
+    "sample_images": {
+      "first_window_channels": [
+        0,
+        1,
+        2
+      ],
+      "first_window": "analysis_outputs/analysis_bitcoin_chapter/btc_usd_weekly/btc_usd_weekly_gaf_sample.png"
+    },
+    "image_evaluation": {
+      "largest_resolution": 256,
+      "configured_image_size": 256,
+      "actual_image_size": 256,
+      "scale_ratio": 1.0,
+      "points_per_pixel": 1.015625,
+      "status": "ok"
+    },
+    "label_mode": "sign",
+    "quantile_bins": 3,
+    "neutral_threshold": 1e-06,
+    "metric_samples": {
+      "count": 41,
+      "indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        40
+      ]
+    },
+    "box_counting": {
+      "thresholds": [
+        0.2,
+        0.4,
+        0.6,
+        0.8
+      ],
+      "box_sizes": [
+        2,
+        4,
+        8,
+        16,
+        32,
+        64,
+        128,
+        256
+      ],
+      "channel_metrics": [
+        {
+          "channel": 0,
+          "samples": 41,
+          "mean": 1.3042560510549028,
+          "std": 0.10447307630427652
+        },
+        {
+          "channel": 1,
+          "samples": 41,
+          "mean": 1.8988687696534672,
+          "std": 0.006080716543302741
+        },
+        {
+          "channel": 2,
+          "samples": 41,
+          "mean": 1.0790555831943185,
+          "std": 0.13421493993751396
+        },
+        {
+          "channel": 3,
+          "samples": 41,
+          "mean": 1.809710828909437,
+          "std": 0.010614143092869134
+        },
+        {
+          "channel": 4,
+          "samples": 41,
+          "mean": 1.1644345739094792,
+          "std": 0.045889190659749154
+        },
+        {
+          "channel": 5,
+          "samples": 41,
+          "mean": 1.8098007438322876,
+          "std": 0.02255419259160721
+        }
+      ],
+      "samples": 41
+    },
+    "embedding": {
+      "method": "pca_lowrank",
+      "target_dimension": 16,
+      "dimension": 16,
+      "samples": 41,
+      "centroid": [
+        -2.2329934381559724e-06,
+        -8.838932785693032e-07,
+        -3.535573114277213e-06,
+        -1.395620984112611e-06,
+        3.721655730259954e-07,
+        3.4192712519143242e-06,
+        -1.2095381407561945e-06,
+        1.1397571597626666e-06,
+        -3.814697265625e-06,
+        -7.443311460519908e-07,
+        -4.070561203661782e-07,
+        -4.0124100451066624e-06,
+        2.5586384708731202e-06,
+        3.4890524602815276e-06,
+        -5.349880325411505e-07,
+        2.628419451866648e-06
+      ],
+      "explained_variance_ratio": [
+        0.051719602197408676,
+        0.046850718557834625,
+        0.04577155411243439,
+        0.04367935284972191,
+        0.04140515625476837,
+        0.0370328463613987,
+        0.03376271203160286,
+        0.032449644058942795,
+        0.03214413672685623,
+        0.030062997713685036,
+        0.028657006099820137,
+        0.027657125145196915,
+        0.02479582093656063,
+        0.022688357159495354,
+        0.0200409647077322,
+        0.01876187138259411
+      ],
+      "embedding_path": "analysis_outputs/analysis_bitcoin_chapter/btc_usd_weekly/btc_usd_weekly_embeddings.npy",
+      "sample_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        40
+      ],
+      "centroid_norm": 9.59653615890769e-06
+    }
+  },
+  "outputs": {
+    "first_window_channels": [
+      0,
+      1,
+      2
+    ],
+    "first_window": "analysis_outputs/analysis_bitcoin_chapter/btc_usd_weekly/btc_usd_weekly_gaf_sample.png"
+  }
+}

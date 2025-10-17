@@ -60,6 +60,193 @@ def _compute_returns(prices: pd.Series) -> pd.Series:
     return np.log(prices).diff().dropna()
 
 
+def _cosine_similarity(a: np.ndarray | None, b: np.ndarray | None) -> float:
+    if a is None or b is None:
+        return float("nan")
+    norm_a = np.linalg.norm(a)
+    norm_b = np.linalg.norm(b)
+    if norm_a == 0.0 or norm_b == 0.0:
+        return 0.0
+    return float(np.dot(a, b) / (norm_a * norm_b))
+
+
+def _compute_centroid(embeddings: np.ndarray) -> np.ndarray | None:
+    if embeddings.size == 0:
+        return None
+    norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
+    norms[norms == 0.0] = 1.0
+    normalised = embeddings / norms
+    centroid = normalised.mean(axis=0)
+    return centroid
+
+
+def _pad_embeddings(embeddings: np.ndarray, target_dim: int) -> np.ndarray:
+    if embeddings.shape[1] >= target_dim:
+        return embeddings[:, :target_dim]
+    pad_width = target_dim - embeddings.shape[1]
+    padding = np.zeros((embeddings.shape[0], pad_width), dtype=float)
+    return np.hstack((embeddings, padding))
+
+
+def _permutation_test(
+    emb_a: np.ndarray,
+    emb_b: np.ndarray,
+    *,
+    permutations: int,
+    rng: np.random.Generator,
+) -> dict[str, object]:
+    n_a = emb_a.shape[0]
+    n_b = emb_b.shape[0]
+    observed = _cosine_similarity(_compute_centroid(emb_a), _compute_centroid(emb_b))
+    stats: dict[str, object] = {
+        "observed_cosine": float(observed) if np.isfinite(observed) else float("nan"),
+        "n_a": int(n_a),
+        "n_b": int(n_b),
+    }
+    if permutations <= 0 or n_a == 0 or n_b == 0:
+        stats.update(
+            {
+                "permutations": 0,
+                "p_value_upper": None,
+                "p_value_two_sided": None,
+                "null_mean": None,
+                "null_std": None,
+            }
+        )
+        return stats
+
+    combined = np.vstack((emb_a, emb_b))
+    total = combined.shape[0]
+    null_samples: list[float] = []
+    for _ in range(permutations):
+        permuted = rng.permutation(total)
+        perm_a = combined[permuted[:n_a]]
+        perm_b = combined[permuted[n_a:]]
+        sim = _cosine_similarity(
+            _compute_centroid(perm_a), _compute_centroid(perm_b)
+        )
+        if not np.isfinite(sim):
+            sim = 0.0
+        null_samples.append(float(sim))
+    null_array = np.array(null_samples, dtype=float)
+    if null_array.size == 0:
+        stats.update(
+            {
+                "permutations": 0,
+                "p_value_upper": None,
+                "p_value_two_sided": None,
+                "null_mean": None,
+                "null_std": None,
+            }
+        )
+        return stats
+
+    greater_equal = int(np.sum(null_array >= observed))
+    less_equal = int(np.sum(null_array <= observed))
+    stats.update(
+        {
+            "permutations": int(permutations),
+            "p_value_upper": float((greater_equal + 1) / (null_array.size + 1)),
+            "p_value_two_sided": float((min(greater_equal, less_equal) + 1) / (null_array.size + 1)),
+            "null_mean": float(np.mean(null_array)),
+            "null_std": float(np.std(null_array, ddof=0)),
+        }
+    )
+    return stats
+
+
+def _compute_cross_scale_similarity(
+    results: dict[str, dict[str, object]],
+    *,
+    permutations: int,
+    random_seed: int,
+) -> dict[str, object]:
+    records: list[dict[str, object]] = []
+    for slug, summary in results.items():
+        if not isinstance(summary, dict):
+            continue
+        gaf_info = summary.get("gaf") or {}
+        embedding = gaf_info.get("embedding") or {}
+        path_str = embedding.get("embedding_path")
+        if not path_str:
+            continue
+        path = Path(path_str)
+        if not path.exists():
+            continue
+        embeddings = np.load(path)
+        if embeddings.ndim != 2 or embeddings.size == 0:
+            continue
+        records.append(
+            {
+                "slug": slug,
+                "label": summary.get("label"),
+                "interval": summary.get("interval"),
+                "embeddings": embeddings.astype(float, copy=False),
+                "dimension": embeddings.shape[1],
+            }
+        )
+
+    if len(records) < 2:
+        return {}
+
+    max_dim = max(rec["dimension"] for rec in records)
+    for rec in records:
+        rec["embeddings"] = _pad_embeddings(rec["embeddings"], max_dim)
+        rec["centroid"] = _compute_centroid(rec["embeddings"])
+
+    rng = np.random.default_rng(random_seed)
+    matrix: dict[str, dict[str, float]] = {}
+    tests: list[dict[str, object]] = []
+
+    for rec in records:
+        matrix[rec["slug"]] = {}
+
+    for i, rec_a in enumerate(records):
+        for j, rec_b in enumerate(records):
+            if j < i:
+                matrix[rec_a["slug"]][rec_b["slug"]] = matrix[rec_b["slug"]][rec_a["slug"]]
+                continue
+            sim = _cosine_similarity(rec_a["centroid"], rec_b["centroid"])
+            matrix[rec_a["slug"]][rec_b["slug"]] = sim
+            matrix[rec_b["slug"]][rec_a["slug"]] = sim
+            if i == j:
+                continue
+            stats = _permutation_test(
+                rec_a["embeddings"],
+                rec_b["embeddings"],
+                permutations=permutations,
+                rng=rng,
+            )
+            stats.update(
+                {
+                    "scale_a": rec_a["slug"],
+                    "scale_b": rec_b["slug"],
+                    "label_a": rec_a["label"],
+                    "label_b": rec_b["label"],
+                    "interval_a": rec_a["interval"],
+                    "interval_b": rec_b["interval"],
+                }
+            )
+            tests.append(stats)
+
+    return {
+        "matrix": matrix,
+        "pairwise_tests": tests,
+        "permutations": int(permutations),
+        "random_seed": int(random_seed),
+        "scales": [
+            {
+                "slug": rec["slug"],
+                "label": rec["label"],
+                "interval": rec["interval"],
+                "dimension": rec["embeddings"].shape[1],
+                "samples": rec["embeddings"].shape[0],
+            }
+            for rec in records
+        ],
+    }
+
+
 def run_gaf_scale(
     symbol: str,
     *,
@@ -159,6 +346,8 @@ def run_multi_scale_gaf(
     include_intraday: bool = True,
     max_retries: int = 6,
     retry_delay: float = 1.5,
+    similarity_permutations: int = 200,
+    similarity_random_seed: int = 1234,
 ) -> dict[str, object]:
     """Run the GAF-only workflow across all configured scales."""
 
@@ -210,6 +399,21 @@ def run_multi_scale_gaf(
             "gaf_neutral_threshold": gaf_info.get("neutral_threshold"),
             "gaf_quantile_bins": gaf_info.get("quantile_bins"),
         }
+        box_info = gaf_info.get("box_counting") or {}
+        channel_metrics = box_info.get("channel_metrics") or []
+        if channel_metrics:
+            row["box_counting_mean"] = {
+                str(metric["channel"]): metric.get("mean") for metric in channel_metrics
+            }
+            row["box_counting_std"] = {
+                str(metric["channel"]): metric.get("std") for metric in channel_metrics
+            }
+        embedding_info = gaf_info.get("embedding") or {}
+        if embedding_info:
+            row["embedding_dimension"] = embedding_info.get("dimension")
+            row["embedding_target_dimension"] = embedding_info.get("target_dimension")
+            row["embedding_centroid_norm"] = embedding_info.get("centroid_norm")
+            row["embedding_samples"] = embedding_info.get("samples")
         comparison_rows.append(row)
 
         evaluation = gaf_info.get("image_evaluation") or {}
@@ -221,6 +425,12 @@ def run_multi_scale_gaf(
             }
             image_recommendations.append(recommendation)
 
+    cross_similarity = _compute_cross_scale_similarity(
+        results,
+        permutations=max(int(similarity_permutations), 0),
+        random_seed=int(similarity_random_seed),
+    )
+
     master_summary = {
         "symbol": symbol,
         "start": start,
@@ -229,6 +439,9 @@ def run_multi_scale_gaf(
         "image_recommendations": image_recommendations,
         "results": results,
     }
+
+    if cross_similarity:
+        master_summary["cross_scale_similarity"] = cross_similarity
 
     master_path = output_dir / f"{slugify(symbol)}_multi_scale_gaf_summary.json"
     with open(master_path, "w", encoding="utf-8") as fh:
@@ -245,6 +458,8 @@ def run_multi_asset_gaf(
     include_intraday: bool = True,
     max_retries: int = 6,
     retry_delay: float = 1.5,
+    similarity_permutations: int = 200,
+    similarity_random_seed: int = 1234,
 ) -> dict[str, object]:
     """Run the GAF-only workflow for the supplied assets."""
 
@@ -263,6 +478,8 @@ def run_multi_asset_gaf(
             include_intraday=include_intraday,
             max_retries=max_retries,
             retry_delay=retry_delay,
+            similarity_permutations=similarity_permutations,
+            similarity_random_seed=similarity_random_seed,
         )
         combined_results[asset.key] = result
         recs = result.get("image_recommendations") or []

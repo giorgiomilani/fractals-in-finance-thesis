@@ -357,6 +357,14 @@ def multi_asset_gaf_cmd(
     show_summary: bool = typer.Option(
         False, help="Print the aggregated JSON summary after finishing the run."
     ),
+    similarity_permutations: int = typer.Option(
+        200,
+        help="Number of permutations for cross-scale cosine similarity significance tests.",
+    ),
+    similarity_random_seed: int = typer.Option(
+        1234,
+        help="Random seed used when shuffling embeddings for permutation tests.",
+    ),
     sp500_symbol: str = typer.Option("^GSPC", help="Yahoo Finance ticker for the equity leg."),
     sp500_start: str = typer.Option("1900-01-01", help="Start date for the equity leg."),
     sp500_end: Optional[str] = typer.Option(None, help="Optional end date for the equity leg."),
@@ -403,6 +411,8 @@ def multi_asset_gaf_cmd(
         assets,
         base_output_subdir=base_output_subdir,
         include_intraday=include_intraday,
+        similarity_permutations=similarity_permutations,
+        similarity_random_seed=similarity_random_seed,
     )
 
     summary_path = overview.get("summary_path")
