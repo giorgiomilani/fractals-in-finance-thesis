@@ -19,6 +19,8 @@ growing library of estimators and stochastic simulators.
   configurable GAF dataset pipeline).
 - **Risk metrics** – parametric and EVT-based Value at Risk/Expected Shortfall
   estimators with Hydra configuration files for rapid experimentation.
+- **Benchmark volatility models** – AR(1)-GARCH and HAR-RV fits with
+  multi-horizon forecasts used as sanity checks for the fractal diagnostics.
 - **Example workflows** – S&P 500, multi-asset, and multi-scale analysis
   scripts that orchestrate downloads, model fitting, and visualisation.
 
@@ -72,9 +74,9 @@ required extras.
 
 The `examples` subcommands encapsulate the end-to-end pipelines used in the
 thesis.  Each workflow downloads data from Yahoo! Finance, computes summary
-statistics, fits AR(1)-GARCH and MSM models, evaluates multifractal diagnostics
-(MF-DFA, R/S, DFA, structure functions, WTMM), and writes consistent plots plus
-JSON summaries under `analysis_outputs/<run>/<asset>/`.
+statistics, fits AR(1)-GARCH, HAR-RV, and MSM models, evaluates multifractal
+diagnostics (MF-DFA, R/S, DFA, structure functions, WTMM), and writes consistent
+plots plus JSON summaries under `analysis_outputs/<run>/<asset>/`.
 
 ### S&P 500 daily benchmark
 
@@ -98,8 +100,8 @@ python -m fractalfinance.cli examples multi-asset \
 
 The default bundle analyses the S&P 500, Bitcoin, EUR/USD, Apple, and TLT over
 their full daily histories since 2020.  Each asset receives the complete suite
-of plots (price, returns, GARCH, MF-DFA, R/S, DFA, structure, WTMM) plus its own
-`*_summary.json`.  A consolidated `multi_asset_summary.json` is written to the
+of plots (price, returns, GARCH, HAR, MF-DFA, R/S, DFA, structure, WTMM) plus its
+own `*_summary.json`.  A consolidated `multi_asset_summary.json` is written to the
 requested base directory so you can discover artefacts at a glance.  CLI options
 allow overriding tickers, labels, and date ranges for bespoke studies.
 
@@ -111,11 +113,12 @@ python -m fractalfinance.cli examples multi-scale ^GSPC \
     --output-subdir sp500_multi_scale --show-summary
 ```
 
-This pipeline sweeps the Yahoo! Finance intervals (1m → 1mo), calibrates GARCH
-and MSM models at each scale, computes the fractal metrics, and produces price,
-returns, GARCH, MF-DFA, R/S, DFA, structure-function, WTMM, and Gramian Angular
-Field cubes.  Intraday downloads may emit throttle warnings; they are recorded
-in the per-scale summaries together with any image-size recommendations.
+This pipeline sweeps the Yahoo! Finance intervals (1m → 1mo), calibrates GARCH,
+HAR, and MSM models at each scale, computes the fractal metrics, and produces
+price, returns, GARCH, HAR, MF-DFA, R/S, DFA, structure-function, WTMM, and
+Gramian Angular Field cubes.  Intraday downloads may emit throttle warnings; they
+are recorded in the per-scale summaries together with any image-size
+recommendations.
 
 ### Plotting utilities
 
